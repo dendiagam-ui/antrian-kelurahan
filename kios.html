@@ -4,10 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kios Cetak Tiket</title>
+    
+    <!-- TAG PWA: Agar Kios Bisa Di-install Jadi Aplikasi Android -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#10b981">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2620/2620572.png">
+
     <style>
         body { font-family: sans-serif; background: #e2e8f0; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px;}
         .card { background: white; padding: 40px; border-radius: 20px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
-        .btn-kiosk { background: #10b981; color: white; border: none; padding: 25px; font-size: 24px; font-weight: bold; border-radius: 12px; cursor: pointer; width: 100%; margin-bottom: 15px; transition: 0.2s;}
+        .btn-kiosk { background: #10b981; color: white; border: none; padding: 25px; font-size: 24px; font-weight: bold; border-radius: 12px; cursor: pointer; width: 100%; margin-bottom: 15px; transition: 0.2s; box-shadow: 0 4px 6px rgba(16,185,129,0.3);}
         .btn-kiosk:active { transform: scale(0.95); }
         
         @media screen { #print-area { display: none; } }
@@ -55,7 +61,7 @@
 
         let strukSetting = {};
 
-        // Load Buttons Dinamis berdasarkan Kode Pemanggilan
+        // Load Buttons Dinamis
         onValue(ref(db, 'cibeureum_settings'), snapshot => {
             let data = snapshot.val() || {};
             strukSetting = data.struk || { header: "KELURAHAN CIBEUREUM", sub: "", footer: "Terima Kasih" };

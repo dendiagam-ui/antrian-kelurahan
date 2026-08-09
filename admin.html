@@ -13,6 +13,8 @@
         .btn-recall { background: #f59e0b; }
         .btn-reset { background: #ef4444; margin-top: 30px;}
         select { width: 100%; padding: 12px; font-size: 18px; border-radius: 8px; border: 2px solid #cbd5e1; margin-bottom: 15px; font-weight: bold;}
+        
+        .info-box { background: #f1f5f9; padding: 15px; border-radius: 12px; margin: 20px 0; border: 1px solid #e2e8f0; }
     </style>
 </head>
 <body>
@@ -24,12 +26,19 @@
         <select id="pilihan-loket"></select>
 
         <label style="font-weight:bold; display:block; text-align:left; margin-bottom:5px;">Kategori Antrian DIPANGGIL:</label>
-        <select id="pilihan-kode"></select>
+        <select id="pilihan-kode" onchange="updateInfoSelanjutnya()"></select>
 
         <h1 style="color: #3b82f6; font-size:75px; margin: 10px 0;" id="admin-current">--</h1>
         
         <button id="btnCall" class="admin-btn btn-call" onclick="panggilSelanjutnya()">📢 Panggil Selanjutnya</button>
         <button id="btnRecall" class="admin-btn btn-recall" onclick="panggilUlang()">🔄 Panggil Ulang</button>
+        
+        <!-- INFO ANTRIAN SELANJUTNYA -->
+        <div class="info-box">
+            <span style="color:#64748b; font-size:14px; font-weight:bold;">Menunggu Antrian Berikutnya:</span><br>
+            <strong id="admin-next" style="font-size:28px; color:#10b981;">--</strong>
+        </div>
+
         <button class="admin-btn btn-reset" onclick="resetSemua()">⚠️ Reset Semua Antrian</button>
     </div>
 
@@ -60,6 +69,8 @@
             let kSelect = document.getElementById('pilihan-kode');
             kSelect.innerHTML = '';
             (data.kodes || [{kode:"A", nama:"Umum"}]).forEach(k => kSelect.innerHTML += `<option value="${k.kode}">Kode ${k.kode} (${k.nama})</option>`);
+            
+            updateInfoSelanjutnya();
         });
 
         // Dengarkan Antrian Aktif
@@ -68,8 +79,28 @@
             if(data) {
                 qData = data;
                 document.getElementById('admin-current').innerText = data.displayCode || '--';
+                updateInfoSelanjutnya();
             }
         });
+
+        // FUNGSI CEK ANTRIAN SELANJUTNYA
+        window.updateInfoSelanjutnya = function() {
+            let kode = document.getElementById('pilihan-kode').value;
+            if(!kode) return;
+
+            let currentCall = (qData.calls && qData.calls[kode]) ? qData.calls[kode] : 0;
+            let totalPrinted = (qData.totals && qData.totals[kode]) ? qData.totals[kode] : 0;
+            let nextNo = currentCall + 1;
+
+            let textNext = document.getElementById('admin-next');
+            if (nextNo <= totalPrinted) {
+                textNext.innerText = kode + nextNo;
+                textNext.style.color = "#10b981"; // Hijau = Ada orang
+            } else {
+                textNext.innerText = "Belum Ada Pendaftar";
+                textNext.style.color = "#ef4444"; // Merah = Kosong
+            }
+        }
 
         window.panggilSelanjutnya = function() {
             let kode = document.getElementById('pilihan-kode').value;
@@ -88,33 +119,26 @@
                 
                 if(!qData.status) qData.status = {};
                 qData.status[loket] = fullCode;
-
-                // TAMBAHAN: Set Timestamp agar Layar TV merespon suaranya
                 qData.timestamp = Date.now();
 
                 set(ref(db, 'cibeureum_queue'), qData);
-                
-                // Putar suara di HP Admin juga
                 mainkanSuaraAdmin(kode, nextNo, loket);
             } else {
-                alert(`Antrian untuk Kode ${kode} belum ada pendaftar baru!`);
+                alert(`Antrian untuk Kategori ${kode} kosong / belum ada warga yang mencetak tiket baru!`);
             }
         }
 
         window.panggilUlang = function() {
-            if(qData.displayCode && qData.displayCode !== 'A0') {
+            if(qData.displayCode && qData.displayCode !== 'A0' && qData.displayCode !== '--') {
                 let kode = document.getElementById('pilihan-kode').value;
                 let loket = document.getElementById('pilihan-loket').value;
                 
-                // Hanya update timestamp untuk men-trigger suara di TV
                 qData.timestamp = Date.now();
-                qData.loket = loket; // Setel ke loket yg memanggil ulang
+                qData.loket = loket; 
                 if(!qData.status) qData.status = {};
                 qData.status[loket] = qData.displayCode;
 
                 set(ref(db, 'cibeureum_queue'), qData); 
-                
-                // Putar suara di HP Admin
                 mainkanSuaraAdmin(kode, qData.call, loket);
             } else { alert("Belum ada antrian yang bisa dipanggil."); }
         }
@@ -125,7 +149,6 @@
             }
         }
 
-        // Suara Lokal Untuk HP Admin
         function mainkanSuaraAdmin(kode, nomor, loket) {
             let b1 = document.getElementById('btnCall'), b2 = document.getElementById('btnRecall');
             b1.disabled = true; b2.disabled = true;
