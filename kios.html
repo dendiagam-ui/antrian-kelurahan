@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kios Cetak Tiket</title>
     
-<!-- TAG PWA: Agar Kios Bisa Di-install Jadi Aplikasi Android -->
     <link rel="manifest" href="manifest-kios.json">
     <meta name="theme-color" content="#10b981">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2620/2620572.png">
@@ -16,6 +15,12 @@
         .btn-kiosk { background: #10b981; color: white; border: none; padding: 25px; font-size: 24px; font-weight: bold; border-radius: 12px; cursor: pointer; width: 100%; margin-bottom: 15px; transition: 0.2s; box-shadow: 0 4px 6px rgba(16,185,129,0.3);}
         .btn-kiosk:active { transform: scale(0.95); }
         
+        /* Checkbox Mode Otomatis */
+        .print-mode { margin-top: 25px; padding: 15px; background: #f8fafc; border-radius: 10px; border: 1px solid #cbd5e1; display: flex; align-items: center; justify-content: center; gap: 10px;}
+        .print-mode input { width: 20px; height: 20px; accent-color: #10b981;}
+        .print-mode label { font-size: 14px; font-weight: bold; color: #475569; cursor: pointer;}
+
+        /* CSS Print Bawaan (Jika mode otomatis dimatikan) */
         @media screen { #print-area { display: none; } }
         @media print {
             body > *:not(#print-area) { display: none; }
@@ -29,10 +34,17 @@
     <div class="card">
         <h1 style="margin-top:0;">Selamat Datang</h1>
         <p style="color:gray;">Pilih Layanan Antrian Anda:</p>
+        
         <div id="buttons-container">Memuat Layanan...</div>
+
+        <!-- Opsi Print Otomatis -->
+        <div class="print-mode">
+            <input type="checkbox" id="auto-print" checked>
+            <label for="auto-print">Print Otomatis Tanpa Preview <br><span style="font-size:11px; color:#ef4444;">(Wajib menggunakan aplikasi RawBT)</span></label>
+        </div>
     </div>
 
-    <!-- STRUK PRINT THERMAL -->
+    <!-- STRUK PRINT THERMAL BAWAAN (FALLBACK) -->
     <div id="print-area">
         <div style="font-weight: bold; font-size:16px;" id="p-header"></div>
         <div style="font-size: 12px;" id="p-sub"></div>
@@ -91,15 +103,46 @@
 
             await set(queueRef, qData);
 
-            // Isikan Ke Struk
-            document.getElementById('p-header').innerText = strukSetting.header;
-            document.getElementById('p-sub').innerText = strukSetting.sub;
-            document.getElementById('p-footer').innerText = strukSetting.footer;
-            document.getElementById('p-number').innerText = kode + currentNo;
-            document.getElementById('p-layanan').innerText = namaLayanan;
-            document.getElementById('p-date').innerText = new Date().toLocaleString('id-ID');
+            let isAutoPrint = document.getElementById('auto-print').checked;
+            let fullCode = kode + currentNo;
+            let tanggal = new Date().toLocaleString('id-ID');
 
-            window.print();
+            if (isAutoPrint) {
+                // =======================================================
+                // METODE 1: SILENT PRINT (Langsung kirim ke aplikasi RawBT)
+                // =======================================================
+                
+                // Format teks struk menggunakan Markup khusus RawBT
+                let rawbtText = 
+                    "[C]<b>" + strukSetting.header + "</b>\n" +
+                    "[C]" + strukSetting.sub + "\n" +
+                    "[C]--------------------------------\n" +
+                    "[C]NOMOR ANTRIAN\n" +
+                    "[C]<font size='big'>" + fullCode + "</font>\n" +
+                    "[C]" + namaLayanan + "\n" +
+                    "[C]" + tanggal + "\n" +
+                    "[C]--------------------------------\n" +
+                    "[C]" + strukSetting.footer + "\n\n\n"; // 3 Enter di bawah agar kertas terpotong pas
+                
+                // Konversi teks menjadi format URL yang dipahami Android
+                let encodedText = encodeURI(rawbtText);
+                
+                // Lempar perintah langsung ke aplikasi RawBT
+                window.location.href = "intent:" + encodedText + "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
+
+            } else {
+                // =======================================================
+                // METODE 2: PRINT BAWAAN CHROME (Akan muncul dialog Print)
+                // =======================================================
+                document.getElementById('p-header').innerText = strukSetting.header;
+                document.getElementById('p-sub').innerText = strukSetting.sub;
+                document.getElementById('p-footer').innerText = strukSetting.footer;
+                document.getElementById('p-number').innerText = fullCode;
+                document.getElementById('p-layanan').innerText = namaLayanan;
+                document.getElementById('p-date').innerText = tanggal;
+
+                window.print();
+            }
         }
     </script>
 </body>
