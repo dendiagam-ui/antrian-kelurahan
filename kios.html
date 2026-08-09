@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kios Mesin Antrian</title>
+    <title>Kios Cetak Tiket</title>
     <style>
-        body { font-family: sans-serif; background: #e2e8f0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .kiosk-card { background: white; padding: 50px; border-radius: 20px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 90%; max-width: 500px; }
-        .btn-kiosk { background: #10b981; color: white; border: none; padding: 40px; font-size: 32px; font-weight: bold; border-radius: 15px; cursor: pointer; width: 100%; margin-top: 20px;}
+        body { font-family: sans-serif; background: #e2e8f0; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px;}
+        .card { background: white; padding: 40px; border-radius: 20px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
+        .btn-kiosk { background: #10b981; color: white; border: none; padding: 25px; font-size: 24px; font-weight: bold; border-radius: 12px; cursor: pointer; width: 100%; margin-bottom: 15px; transition: 0.2s;}
         .btn-kiosk:active { transform: scale(0.95); }
         
         @media screen { #print-area { display: none; } }
@@ -20,51 +20,79 @@
 </head>
 <body>
 
-    <div class="kiosk-card">
-        <h1>Selamat Datang</h1>
-        <p style="font-size:20px; color:gray;">Silakan ambil tiket antrian Anda</p>
-        <button class="btn-kiosk" onclick="ambilAntrian()">🖨️ CETAK TIKET</button>
+    <div class="card">
+        <h1 style="margin-top:0;">Selamat Datang</h1>
+        <p style="color:gray;">Pilih Layanan Antrian Anda:</p>
+        <div id="buttons-container">Memuat Layanan...</div>
     </div>
 
-    <!-- AREA STRUK PRINT -->
+    <!-- STRUK PRINT THERMAL -->
     <div id="print-area">
-        <div style="font-weight: bold;">KELURAHAN CIBEUREUM</div>
-        <div style="font-size: 12px;" id="print-date"></div>
+        <div style="font-weight: bold; font-size:16px;" id="p-header"></div>
+        <div style="font-size: 12px;" id="p-sub"></div>
+        <hr style="border-dash: 1px dashed black;">
         <div>NOMOR ANTRIAN</div>
-        <div class="p-num" id="print-number">A0</div>
-        <div>Pelayanan Masyarakat</div>
-        <div style="font-size: 10px; margin-top:10px;">Budayakan antri demi kenyamanan bersama.</div>
+        <div class="p-num" id="p-number">A1</div>
+        <div id="p-layanan" style="font-weight:bold;"></div>
+        <div style="font-size: 10px; margin-top:10px;" id="p-date"></div>
+        <hr style="border-dash: 1px dashed black;">
+        <div style="font-size: 11px;" id="p-footer"></div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
-        import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-database.js";
+        import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDciXMHMtqypmfhLw2am_GAn3FV1bBjcKo",
             authDomain: "antrian-cibeureum-f125b.firebaseapp.com",
             databaseURL: "https://antrian-cibeureum-f125b-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "antrian-cibeureum-f125b",
-            storageBucket: "antrian-cibeureum-f125b.firebasestorage.app",
-            messagingSenderId: "715978413563",
-            appId: "1:715978413563:web:31c62bd0430bbb3e6ee75e"
+            projectId: "antrian-cibeureum-f125b"
         };
         
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-        const queueRef = ref(db, 'cibeureum_queue');
 
-        window.ambilAntrian = async function() {
-            // Mengambil data saat ini dari server terlebih dahulu
-            const snapshot = await get(queueRef);
-            let data = snapshot.val() || { total: 0, call: 0, loket: "Menunggu..." };
+        let strukSetting = {};
+
+        // Load Buttons Dinamis berdasarkan Kode Pemanggilan
+        onValue(ref(db, 'cibeureum_settings'), snapshot => {
+            let data = snapshot.val() || {};
+            strukSetting = data.struk || { header: "KELURAHAN CIBEUREUM", sub: "", footer: "Terima Kasih" };
+
+            let container = document.getElementById('buttons-container');
+            container.innerHTML = '';
             
-            data.total++;
-            await set(queueRef, data); // Update total ke server
-            
-            // Set struk
-            document.getElementById('print-number').innerText = 'A' + data.total;
-            document.getElementById('print-date').innerText = new Date().toLocaleString('id-ID');
+            let kodes = data.kodes || [{kode: "A", nama: "Pelayanan Umum"}];
+            kodes.forEach(k => {
+                container.innerHTML += `
+                    <button class="btn-kiosk" onclick="cetak('${k.kode}', '${k.nama}')">
+                        🖨️ CETAK ${k.kode}<br>
+                        <span style="font-size:16px; font-weight:normal;">${k.nama}</span>
+                    </button>
+                `;
+            });
+        });
+
+        window.cetak = async function(kode, namaLayanan) {
+            let queueRef = ref(db, 'cibeureum_queue');
+            let snapshot = await get(queueRef);
+            let qData = snapshot.val() || { totals: {} };
+
+            if(!qData.totals) qData.totals = {};
+            let currentNo = (qData.totals[kode] || 0) + 1;
+            qData.totals[kode] = currentNo;
+
+            await set(queueRef, qData);
+
+            // Isikan Ke Struk
+            document.getElementById('p-header').innerText = strukSetting.header;
+            document.getElementById('p-sub').innerText = strukSetting.sub;
+            document.getElementById('p-footer').innerText = strukSetting.footer;
+            document.getElementById('p-number').innerText = kode + currentNo;
+            document.getElementById('p-layanan').innerText = namaLayanan;
+            document.getElementById('p-date').innerText = new Date().toLocaleString('id-ID');
+
             window.print();
         }
     </script>

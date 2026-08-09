@@ -5,141 +5,340 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pengaturan Sistem Antrian</title>
     <style>
-        body { font-family: sans-serif; background: #e2e8f0; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px;}
-        .setting-card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 600px; }
-        .form-group { margin-bottom: 25px; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0;}
-        label { font-weight: bold; display: block; margin-bottom: 8px; color: #1e293b; }
-        select, textarea, input { width: 100%; padding: 12px; font-size: 16px; border: 2px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; }
-        .help-text { font-size: 13px; color: #64748b; margin-top: 5px; display: block; }
-        .btn-save { background: #10b981; color: white; border: none; padding: 15px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; width: 100%; transition: 0.2s; margin-top: 10px;}
-        .btn-save:hover { background: #059669; }
+        :root { --primary: #0f172a; --accent: #3b82f6; --success: #10b981; --danger: #ef4444; }
+        body { font-family: sans-serif; background: #f1f5f9; margin: 0; padding: 20px; color: #1e293b; }
+        .container { max-width: 900px; margin: 0 auto; }
         
-        .loket-row { display: flex; gap: 10px; margin-bottom: 10px; }
-        .btn-remove { background: #ef4444; color: white; border: none; padding: 0 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        .btn-add { background: #3b82f6; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; }
+        /* Navigasi Tab Setting */
+        .tab-nav { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab-btn { flex: 1; padding: 15px; background: white; border: none; font-size: 16px; font-weight: bold; border-radius: 12px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.05); color: #64748b;}
+        .tab-btn.active { background: var(--accent); color: white; }
+
+        .card { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .form-group { margin-bottom: 18px; }
+        label { font-weight: bold; display: block; margin-bottom: 6px; }
+        input, select, textarea { width: 100%; padding: 10px 14px; font-size: 15px; border: 2px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; }
         
-        .alert { background: #d1fae5; color: #065f46; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 15px; display: none; font-weight: bold;}
+        .flex-row { display: flex; gap: 10px; margin-bottom: 8px; }
+        .btn-del { background: var(--danger); color: white; border: none; padding: 0 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-add { background: var(--accent); color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 5px;}
+        .btn-save { background: var(--success); color: white; border: none; padding: 14px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; width: 100%; }
+
+        /* Tabel Data Permohonan */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
+        th { background: #f8fafc; }
+        .badge { padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 12px; color: white; display: inline-block; }
+        .bg-operator { background: #64748b; }
+        .bg-verifikasi { background: #3b82f6; }
+        .bg-tte { background: #f59e0b; }
+        .bg-selesai { background: #10b981; }
+
+        .alert { background: #d1fae5; color: #065f46; padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 15px; display: none; font-weight: bold;}
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
     </style>
 </head>
 <body>
 
-    <div class="setting-card">
-        <h2 style="text-align: center; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; margin-top:0;">⚙️ Pengaturan Sistem</h2>
-        
-        <div id="alertSuccess" class="alert">✅ Pengaturan berhasil disimpan! Sistem akan otomatis berubah.</div>
+    <div class="container">
+        <h2 style="text-align: center; margin-bottom: 20px;">⚙️ Panel Pengaturan & Input Data</h2>
+        <div id="alertSuccess" class="alert">✅ Data Berhasil Disimpan!</div>
 
-        <!-- PENGATURAN TEKS BERJALAN -->
-        <div class="form-group">
-            <label>Teks Berjalan (Marquee) TV</label>
-            <textarea id="setting-marquee" rows="3" placeholder="Masukkan teks info/pengumuman..."></textarea>
+        <!-- NAVIGASI TAB -->
+        <div class="tab-nav">
+            <button class="tab-btn active" onclick="switchTab('tab-sistem')">🛠️ Pengaturan Sistem & Struk</button>
+            <button class="tab-btn" onclick="switchTab('tab-dokumen')">📄 Status Dokumen Permohonan</button>
         </div>
 
-        <!-- PENGATURAN LOKET -->
-        <div class="form-group">
-            <label>Pengaturan Loket</label>
-            <span class="help-text" style="margin-bottom:10px;">Loket yang ditambahkan di sini akan otomatis membuat kolom baru di Layar TV dan Panel Admin.</span>
-            <div id="loket-container">
-                <!-- Baris loket akan di-generate via JS -->
+        <!-- TAB 1: PENGATURAN SISTEM & STRUK -->
+        <div id="tab-sistem" class="tab-content active">
+            
+            <!-- 1. SETTING CETAK STRUK TIKET -->
+            <div class="card">
+                <h3>🖨️ Pengaturan Cetak Struk Tiket</h3>
+                <div class="form-group">
+                    <label>Judul Utama Struk</label>
+                    <input type="text" id="struk-header" placeholder="Contoh: KELURAHAN CIBEUREUM">
+                </div>
+                <div class="form-group">
+                    <label>Subjudul Struk</label>
+                    <input type="text" id="struk-sub" placeholder="Contoh: Jl. Raya Cibeureum No. 123">
+                </div>
+                <div class="form-group">
+                    <label>Pesan Footer / Penutup</label>
+                    <input type="text" id="struk-footer" placeholder="Contoh: Terima kasih atas kunjungan Anda">
+                </div>
             </div>
-            <button class="btn-add" onclick="tambahBarisLoket('')">➕ Tambah Loket Baru</button>
+
+            <!-- 2. SETTING KODE PEMANGGILAN / KATEGORI -->
+            <div class="card">
+                <h3>🏷️ Kode Pemanggilan & Kategori Antrian</h3>
+                <p style="font-size: 13px; color: #64748b;">Atur kode antrian (A, B, C, dst) beserta jenis layanannya.</p>
+                <div id="kode-container"></div>
+                <button class="btn-add" onclick="tambahKode('', '')">➕ Tambah Kode / Kategori Baru</button>
+            </div>
+
+            <!-- 3. SETTING LOKET -->
+            <div class="card">
+                <h3>🚪 Daftar Loket Pelayanan</h3>
+                <div id="loket-container"></div>
+                <button class="btn-add" onclick="tambahLoket('')">➕ Tambah Loket Baru</button>
+            </div>
+
+            <!-- 4. SETTING MEDIA TV & MARQUEE -->
+            <div class="card">
+                <h3>📺 Tampilan Layar TV</h3>
+                <div class="form-group">
+                    <label>Media Bagian Kiri TV</label>
+                    <select id="media-type">
+                        <option value="status_dokumen">📋 Tabel Live Status Dokumen Permohonan Warga</option>
+                        <option value="images">🖼️ Slideshow Gambar</option>
+                        <option value="youtube">📺 Video YouTube (Auto-Play)</option>
+                        <option value="gslides">📊 Google Slides (PPT)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Link / Konten Media (Abaikan jika memilih Tabel Status Dokumen)</label>
+                    <textarea id="media-content" rows="2" placeholder="Masukkan ID YouTube / Link Gambar / Link Google Slides..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Teks Berjalan (Marquee)</label>
+                    <textarea id="setting-marquee" rows="2"></textarea>
+                </div>
+            </div>
+
+            <button class="btn-save" onclick="simpanSistem()">💾 SIMPAN SEMUA PENGATURAN</button>
         </div>
 
-        <!-- PENGATURAN MEDIA -->
-        <div class="form-group">
-            <label>Media Layar TV</label>
-            <select id="media-type" style="margin-bottom: 10px;" onchange="changeHelpText()">
-                <option value="images">🖼️ Slideshow Gambar (Otomatis)</option>
-                <option value="youtube">📺 Video YouTube (Auto-Play)</option>
-                <option value="gslides">📊 Google Slides (PPT)</option>
-            </select>
-            <textarea id="media-content" rows="3" placeholder="Masukkan link..."></textarea>
-            <span id="help-text" class="help-text"></span>
+        <!-- TAB 2: INPUT STATUS DOKUMEN PERMOHONAN WARGA -->
+        <div id="tab-dokumen" class="tab-content">
+            <div class="card">
+                <h3>➕ Input Permohonan Dokumen Baru / Update</h3>
+                <input type="hidden" id="doc-id">
+                <div class="form-group">
+                    <label>Nama Pemohon</label>
+                    <input type="text" id="doc-nama" placeholder="Masukkan Nama Warga">
+                </div>
+                <div class="form-group">
+                    <label>Jenis Layanan / Dokumen</label>
+                    <input type="text" id="doc-layanan" placeholder="Contoh: KTP-el / Surat Keterangan Usaha / KK">
+                </div>
+                <div class="form-group">
+                    <label>Status Proses Dokumen</label>
+                    <select id="doc-status">
+                        <option value="Input Operator">Input Operator</option>
+                        <option value="Verifikasi">Verifikasi</option>
+                        <option value="Menunggu TTE">Menunggu TTE</option>
+                        <option value="Selesai">Selesai</option>
+                    </select>
+                </div>
+                <button class="btn-save" onclick="simpanDokumen()">📌 SIMPAN DATA PERMOHONAN</button>
+            </div>
+
+            <div class="card">
+                <h3>📋 Daftar Status Dokumen Permohonan Warga</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nama Pemohon</th>
+                            <th>Layanan</th>
+                            <th>Status</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-dokumen-body">
+                        <tr><td colspan="4" style="text-align:center;">Memuat data...</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
-        <button class="btn-save" onclick="simpanPengaturan()">💾 SIMPAN PENGATURAN</button>
-        <a href="/" style="display:block; text-align:center; margin-top:20px; color:#3b82f6; text-decoration:none;">⬅️ Kembali ke TV</a>
+        <a href="/" style="display:block; text-align:center; margin-top:20px; color:#3b82f6; text-decoration:none;">⬅️ Kembali ke Halaman Utama TV</a>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
-        import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-database.js";
+        import { getDatabase, ref, set, get, push, remove } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDciXMHMtqypmfhLw2am_GAn3FV1bBjcKo",
             authDomain: "antrian-cibeureum-f125b.firebaseapp.com",
             databaseURL: "https://antrian-cibeureum-f125b-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "antrian-cibeureum-f125b",
-            storageBucket: "antrian-cibeureum-f125b.firebasestorage.app",
-            messagingSenderId: "715978413563",
-            appId: "1:715978413563:web:31c62bd0430bbb3e6ee75e"
+            projectId: "antrian-cibeureum-f125b"
         };
         
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-        const settingsRef = ref(db, 'cibeureum_settings');
 
-        // Fungsi Menambah Kolom Input Loket
-        window.tambahBarisLoket = function(nilai) {
-            const container = document.getElementById('loket-container');
+        // Switch Tab Function
+        window.switchTab = function(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.currentTarget.classList.add('active');
+            if(tabId === 'tab-dokumen') loadDokumenTable();
+        }
+
+        // Dynamic Field Handlers
+        window.tambahKode = function(kode, nama) {
+            const container = document.getElementById('kode-container');
             const div = document.createElement('div');
-            div.className = 'loket-row';
+            div.className = 'flex-row';
             div.innerHTML = `
-                <input type="text" class="loket-input" placeholder="Nama Loket (Contoh: Loket 1)" value="${nilai}">
-                <button class="btn-remove" onclick="this.parentElement.remove()">X</button>
+                <input type="text" class="input-kode" placeholder="Kode (A/B/C)" value="${kode}" style="width:30%;">
+                <input type="text" class="input-nama-kode" placeholder="Nama Layanan" value="${nama}" style="width:70%;">
+                <button class="btn-del" onclick="this.parentElement.remove()">X</button>
             `;
             container.appendChild(div);
         }
 
-        // Ambil Data Saat Ini
-        get(settingsRef).then((snapshot) => {
-            let data = snapshot.val();
-            
-            // Set Marquee
-            document.getElementById('setting-marquee').value = data?.marquee || "Selamat Datang di Pusat Pelayanan Masyarakat Kelurahan Cibeureum.";
-            
-            // Set Media
-            if(data?.media) {
-                document.getElementById('media-type').value = data.media.type;
-                document.getElementById('media-content').value = data.media.content;
-            }
-            window.changeHelpText();
-
-            // Set Daftar Loket
-            let daftarLoket = data?.lokets || ["Loket 1", "Loket 2"];
-            daftarLoket.forEach(loket => tambahBarisLoket(loket));
-        });
-
-        // Bantuan Media
-        window.changeHelpText = function() {
-            let type = document.getElementById('media-type').value;
-            let help = document.getElementById('help-text');
-            if (type === 'images') help.innerHTML = "Pisahkan URL dengan tanda koma (,) untuk >1 gambar.";
-            else if (type === 'youtube') help.innerHTML = "Masukkan <b>ID Video YouTube</b> (Misal: dQw4w9WgXcQ).";
-            else if (type === 'gslides') help.innerHTML = "Masukkan link Embed src Google Slides.";
+        window.tambahLoket = function(nama) {
+            const container = document.getElementById('loket-container');
+            const div = document.createElement('div');
+            div.className = 'flex-row';
+            div.innerHTML = `
+                <input type="text" class="input-loket" placeholder="Nama Loket" value="${nama}">
+                <button class="btn-del" onclick="this.parentElement.remove()">X</button>
+            `;
+            container.appendChild(div);
         }
 
-        // Simpan Semua
-        window.simpanPengaturan = function() {
-            // Ambil array dari input loket, buang yang kosong
-            let loketInputs = document.querySelectorAll('.loket-input');
-            let arrayLoket = Array.from(loketInputs).map(inp => inp.value.trim()).filter(val => val !== "");
+        // Load Initial Settings
+        get(ref(db, 'cibeureum_settings')).then(snapshot => {
+            let data = snapshot.val() || {};
             
-            if(arrayLoket.length === 0) { alert("Minimal harus ada 1 loket!"); return; }
+            // Struk
+            document.getElementById('struk-header').value = data.struk?.header || "KELURAHAN CIBEUREUM";
+            document.getElementById('struk-sub').value = data.struk?.sub || "Pemerintah Kota";
+            document.getElementById('struk-footer').value = data.struk?.footer || "Budayakan Antri Demi Kenyamanan Bersama";
 
-            let dataSimpan = {
+            // Marquee & Media
+            document.getElementById('setting-marquee').value = data.marquee || "Selamat Datang";
+            if(data.media) {
+                document.getElementById('media-type').value = data.media.type || "status_dokumen";
+                document.getElementById('media-content').value = data.media.content || "";
+            }
+
+            // Kode & Loket
+            let kodes = data.kodes || [{kode: "A", nama: "Pelayanan Umum"}];
+            kodes.forEach(k => tambahKode(k.kode, k.nama));
+
+            let lokets = data.lokets || ["Loket 1", "Loket 2"];
+            lokets.forEach(l => tambahLoket(l));
+        });
+
+        // Simpan Setting Sistem
+        window.simpanSistem = function() {
+            let kodesArr = [];
+            document.querySelectorAll('#kode-container .flex-row').forEach(row => {
+                let k = row.querySelector('.input-kode').value.toUpperCase().trim();
+                let n = row.querySelector('.input-nama-kode').value.trim();
+                if(k && n) kodesArr.push({ kode: k, nama: n });
+            });
+
+            let loketsArr = [];
+            document.querySelectorAll('#loket-container .input-loket').forEach(inp => {
+                let val = inp.value.trim();
+                if(val) loketsArr.push(val);
+            });
+
+            if(kodesArr.length === 0 || loketsArr.length === 0) {
+                alert("Kode Antrian dan Loket minimal harus diisi masing-masing 1!");
+                return;
+            }
+
+            let payload = {
+                struk: {
+                    header: document.getElementById('struk-header').value,
+                    sub: document.getElementById('struk-sub').value,
+                    footer: document.getElementById('struk-footer').value
+                },
+                kodes: kodesArr,
+                lokets: loketsArr,
                 marquee: document.getElementById('setting-marquee').value,
-                lokets: arrayLoket,
                 media: {
                     type: document.getElementById('media-type').value,
                     content: document.getElementById('media-content').value
                 }
             };
 
-            set(settingsRef, dataSimpan).then(() => {
-                let alertBox = document.getElementById('alertSuccess');
-                alertBox.style.display = 'block';
-                setTimeout(() => { alertBox.style.display = 'none'; }, 4000);
+            set(ref(db, 'cibeureum_settings'), payload).then(() => {
+                showAlert();
             });
+        }
+
+        // Manage Status Dokumen Permohonan
+        window.simpanDokumen = function() {
+            let id = document.getElementById('doc-id').value;
+            let nama = document.getElementById('doc-nama').value.trim();
+            let layanan = document.getElementById('doc-layanan').value.trim();
+            let status = document.getElementById('doc-status').value;
+
+            if(!nama || !layanan) { alert("Nama dan Jenis Layanan wajib diisi!"); return; }
+
+            let docData = { nama, layanan, status, timestamp: Date.now() };
+            let docRef = id ? ref(db, 'cibeureum_dokumen/' + id) : push(ref(db, 'cibeureum_dokumen'));
+
+            set(docRef, docData).then(() => {
+                document.getElementById('doc-id').value = '';
+                document.getElementById('doc-nama').value = '';
+                document.getElementById('doc-layanan').value = '';
+                showAlert();
+                loadDokumenTable();
+            });
+        }
+
+        function loadDokumenTable() {
+            get(ref(db, 'cibeureum_dokumen')).then(snapshot => {
+                let tbody = document.getElementById('table-dokumen-body');
+                tbody.innerHTML = '';
+                let data = snapshot.val();
+
+                if(!data) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Belum ada data permohonan.</td></tr>';
+                    return;
+                }
+
+                Object.keys(data).forEach(key => {
+                    let item = data[key];
+                    let badgeClass = 'bg-operator';
+                    if(item.status === 'Verifikasi') badgeClass = 'bg-verifikasi';
+                    if(item.status === 'Menunggu TTE') badgeClass = 'bg-tte';
+                    if(item.status === 'Selesai') badgeClass = 'bg-selesai';
+
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><b>${item.nama}</b></td>
+                            <td>${item.layanan}</td>
+                            <td><span class="badge ${badgeClass}">${item.status}</span></td>
+                            <td>
+                                <button onclick="editDokumen('${key}', '${item.nama}', '${item.layanan}', '${item.status}')" style="background:#3b82f6; color:white; border:none; padding:5px 8px; border-radius:4px; cursor:pointer;">Edit</button>
+                                <button onclick="hapusDokumen('${key}')" style="background:#ef4444; color:white; border:none; padding:5px 8px; border-radius:4px; cursor:pointer;">Hapus</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            });
+        }
+
+        window.editDokumen = function(id, nama, layanan, status) {
+            document.getElementById('doc-id').value = id;
+            document.getElementById('doc-nama').value = nama;
+            document.getElementById('doc-layanan').value = layanan;
+            document.getElementById('doc-status').value = status;
+        }
+
+        window.hapusDokumen = function(id) {
+            if(confirm("Hapus data permohonan ini?")) {
+                remove(ref(db, 'cibeureum_dokumen/' + id)).then(() => loadDokumenTable());
+            }
+        }
+
+        function showAlert() {
+            let a = document.getElementById('alertSuccess');
+            a.style.display = 'block';
+            setTimeout(() => { a.style.display = 'none'; }, 3000);
         }
     </script>
 </body>

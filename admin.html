@@ -7,30 +7,30 @@
     <style>
         body { font-family: sans-serif; background: #e2e8f0; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding:20px;}
         .admin-card { background: white; padding: 30px; border-radius: 20px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 500px;}
-        .admin-btn { width: 100%; padding: 20px; font-size: 20px; font-weight: bold; border: none; border-radius: 12px; cursor: pointer; margin-top: 15px; color: white;}
+        .admin-btn { width: 100%; padding: 18px; font-size: 18px; font-weight: bold; border: none; border-radius: 12px; cursor: pointer; margin-top: 10px; color: white;}
         .admin-btn:disabled { background: #cbd5e1 !important; cursor: not-allowed; }
         .btn-call { background: #3b82f6; }
         .btn-recall { background: #f59e0b; }
-        .btn-reset { background: #ef4444; margin-top: 40px;}
-        .loket-select { width: 100%; padding: 15px; font-size: 20px; border-radius: 8px; border: 2px solid #cbd5e1; margin-bottom: 20px; font-weight: bold;}
+        .btn-reset { background: #ef4444; margin-top: 30px;}
+        select { width: 100%; padding: 12px; font-size: 18px; border-radius: 8px; border: 2px solid #cbd5e1; margin-bottom: 15px; font-weight: bold;}
     </style>
 </head>
 <body>
 
     <div class="admin-card">
-        <h2 style="color:#0f172a; margin-top:0;">Panel Pemanggil</h2>
+        <h2>Panel Pemanggil Loket</h2>
         
-        <!-- Pilihan Loket Ini Kini Akan Otomatis Terisi Oleh Firebase -->
-        <select id="pilihan-loket" class="loket-select">
-            <option>Memuat Loket...</option>
-        </select>
-        
-        <p style="margin-bottom:0; color:gray;">Sisa Antrian: <b id="sisa-antrian" style="color:black; font-size:24px;">0</b></p>
-        <h1 style="color: #3b82f6; font-size:80px; margin: 10px 0;" id="admin-current">A0</h1>
+        <label style="font-weight:bold; display:block; text-align:left; margin-bottom:5px;">Loket Anda:</label>
+        <select id="pilihan-loket"></select>
+
+        <label style="font-weight:bold; display:block; text-align:left; margin-bottom:5px;">Kategori Antrian DIPANGGIL:</label>
+        <select id="pilihan-kode"></select>
+
+        <h1 style="color: #3b82f6; font-size:75px; margin: 10px 0;" id="admin-current">--</h1>
         
         <button id="btnCall" class="admin-btn btn-call" onclick="panggilSelanjutnya()">📢 Panggil Selanjutnya</button>
         <button id="btnRecall" class="admin-btn btn-recall" onclick="panggilUlang()">🔄 Panggil Ulang</button>
-        <button class="admin-btn btn-reset" onclick="resetSemua()">⚠️ Reset Sistem (Kembali ke A0)</button>
+        <button class="admin-btn btn-reset" onclick="resetSemua()">⚠️ Reset Semua Antrian</button>
     </div>
 
     <script type="module">
@@ -47,95 +47,89 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         
-        // 1. Dengarkan Perubahan Daftar Loket
-        onValue(ref(db, 'cibeureum_settings/lokets'), (snapshot) => {
-            const lokets = snapshot.val() || ["Loket 1"];
-            const dropdown = document.getElementById('pilihan-loket');
-            dropdown.innerHTML = '';
-            lokets.forEach(nama => {
-                dropdown.innerHTML += `<option value="${nama}">${nama}</option>`;
-            });
+        let qData = { totals: {}, calls: {}, status: {} };
+
+        onValue(ref(db, 'cibeureum_settings'), snapshot => {
+            let data = snapshot.val() || {};
+            
+            let lSelect = document.getElementById('pilihan-loket');
+            lSelect.innerHTML = '';
+            (data.lokets || ["Loket 1"]).forEach(l => lSelect.innerHTML += `<option value="${l}">${l}</option>`);
+
+            let kSelect = document.getElementById('pilihan-kode');
+            kSelect.innerHTML = '';
+            (data.kodes || [{kode:"A", nama:"Umum"}]).forEach(k => kSelect.innerHTML += `<option value="${k.kode}">Kode ${k.kode} (${k.nama})</option>`);
         });
 
-        // 2. Dengarkan Status Antrian
-        const queueRef = ref(db, 'cibeureum_queue');
-        let dataAntrian = { total: 0, call: 0, loket: "Menunggu...", status: {} };
-
-        onValue(queueRef, (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                dataAntrian = data;
-                let sisa = data.total - data.call;
-                document.getElementById('admin-current').innerText = data.call > 0 ? 'A' + data.call : 'A0';
-                document.getElementById('sisa-antrian').innerText = sisa < 0 ? 0 : sisa;
+        onValue(ref(db, 'cibeureum_queue'), snapshot => {
+            let data = snapshot.val();
+            if(data) {
+                qData = data;
+                document.getElementById('admin-current').innerText = data.displayCode || '--';
             }
         });
 
         window.panggilSelanjutnya = function() {
-            if (dataAntrian.call < dataAntrian.total) {
-                dataAntrian.call++;
-                let loketTujuan = document.getElementById('pilihan-loket').value;
-                dataAntrian.loket = loketTujuan;
-                
-                // Simpan nomor A berapa yang dipanggil ke loket tersebut (Untuk ditampilkan di Grid TV)
-                if(!dataAntrian.status) dataAntrian.status = {};
-                dataAntrian.status[loketTujuan] = dataAntrian.call;
+            let kode = document.getElementById('pilihan-kode').value;
+            let loket = document.getElementById('pilihan-loket').value;
 
-                set(queueRef, dataAntrian);
-                mainkanDingdongLaluSuara(dataAntrian.call, loketTujuan);
-            } else { alert('Semua antrian sudah dipanggil!'); }
+            if(!qData.calls) qData.calls = {};
+            let nextNo = (qData.calls[kode] || 0) + 1;
+            let maxNo = (qData.totals && qData.totals[kode]) ? qData.totals[kode] : 0;
+
+            if(nextNo <= maxNo) {
+                qData.calls[kode] = nextNo;
+                let fullCode = kode + nextNo;
+                qData.displayCode = fullCode;
+                qData.loket = loket;
+                qData.call = nextNo;
+
+                if(!qData.status) qData.status = {};
+                qData.status[loket] = fullCode;
+
+                set(ref(db, 'cibeureum_queue'), qData);
+                mainkanSuara(kode, nextNo, loket);
+            } else {
+                alert(`Antrian untuk Kode ${kode} sudah habis / belum ada pendaftar baru!`);
+            }
         }
 
         window.panggilUlang = function() {
-            if (dataAntrian.call > 0) {
-                let loketTujuan = document.getElementById('pilihan-loket').value;
-                dataAntrian.loket = loketTujuan;
-                
-                // Pastikan grid TV tidak hilang saat panggil ulang
-                if(!dataAntrian.status) dataAntrian.status = {};
-                dataAntrian.status[loketTujuan] = dataAntrian.call;
-
-                set(queueRef, dataAntrian); 
-                mainkanDingdongLaluSuara(dataAntrian.call, loketTujuan);
-            } else { alert('Belum ada nomor yang dipanggil.'); }
+            if(qData.displayCode) {
+                let kode = document.getElementById('pilihan-kode').value;
+                let loket = document.getElementById('pilihan-loket').value;
+                mainkanSuara(kode, qData.call, loket);
+            } else { alert("Belum ada antrian yang dipanggil."); }
         }
 
         window.resetSemua = function() {
-            if(confirm("Yakin mereset antrian ke A0? (Kolom TV juga akan dikosongkan)")) {
-                set(queueRef, { total: 0, call: 0, loket: "Menunggu...", status: {} });
+            if(confirm("Yakin mereset semua nomor antrian?")) {
+                set(ref(db, 'cibeureum_queue'), { totals: {}, calls: {}, status: {}, displayCode: "A0" });
             }
         }
 
-        // ==========================================
-        // LOGIKA AUDIO (Dingdong + Bot TTS)
-        // ==========================================
-        function mainkanDingdongLaluSuara(nomor, loket) {
-            let btn1 = document.getElementById('btnCall'), btn2 = document.getElementById('btnRecall');
-            btn1.disabled = true; btn2.disabled = true;
+        function mainkanSuara(kode, nomor, loket) {
+            let b1 = document.getElementById('btnCall'), b2 = document.getElementById('btnRecall');
+            b1.disabled = true; b2.disabled = true;
 
-            let dingdong = new Audio('https://actions.google.com/sounds/v1/alarms/ding_dong_kellogg_chime.ogg');
-            dingdong.play().then(() => {
-                dingdong.onended = () => { panggilBot(nomor, loket, btn1, btn2); };
-            }).catch(() => { panggilBot(nomor, loket, btn1, btn2); });
+            let audio = new Audio('https://actions.google.com/sounds/v1/alarms/ding_dong_kellogg_chime.ogg');
+            audio.play().then(() => {
+                audio.onended = () => {
+                    let teks = `Nomor Antrian, ${kode}, ${terbilang(nomor)}, Silakan menuju, ${loket}.`;
+                    let ucapan = new SpeechSynthesisUtterance(teks);
+                    ucapan.lang = 'id-ID'; ucapan.rate = 0.85;
+                    ucapan.onend = () => { b1.disabled = false; b2.disabled = false; };
+                    window.speechSynthesis.speak(ucapan);
+                };
+            }).catch(() => { b1.disabled = false; b2.disabled = false; });
         }
 
-        function terbilang(angka) {
-            let bil = ["", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", "delapan", "sembilan", "sepuluh", "sebelas"];
-            if (angka < 12) return bil[angka];
-            if (angka < 20) return bil[angka - 10] + " belas";
-            if (angka < 100) return bil[Math.floor(angka / 10)] + " puluh" + (angka % 10 > 0 ? " " + bil[angka % 10] : "");
-            return angka;
-        }
-
-        function panggilBot(nomor, loket, btn1, btn2) {
-            if ('speechSynthesis' in window) {
-                let teks = `Nomor Antrian, A, ${terbilang(nomor)}, Silakan menuju, ${loket}.`;
-                let ucapan = new SpeechSynthesisUtterance(teks);
-                ucapan.lang = 'id-ID'; ucapan.rate = 0.85;
-                ucapan.onend = function() { btn1.disabled = false; btn2.disabled = false; };
-                ucapan.onerror = function() { btn1.disabled = false; btn2.disabled = false; };
-                window.speechSynthesis.speak(ucapan);
-            }
+        function terbilang(n) {
+            let b = ["", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", "delapan", "sembilan", "sepuluh", "sebelas"];
+            if (n < 12) return b[n];
+            if (n < 20) return b[n - 10] + " belas";
+            if (n < 100) return b[Math.floor(n / 10)] + " puluh" + (n % 10 > 0 ? " " + b[n % 10] : "");
+            return n;
         }
     </script>
 </body>
