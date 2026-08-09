@@ -3,46 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pengaturan Layar TV</title>
+    <title>Pengaturan Sistem Antrian</title>
     <style>
         body { font-family: sans-serif; background: #e2e8f0; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px;}
         .setting-card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 600px; }
-        .form-group { margin-bottom: 20px; }
+        .form-group { margin-bottom: 25px; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0;}
         label { font-weight: bold; display: block; margin-bottom: 8px; color: #1e293b; }
         select, textarea, input { width: 100%; padding: 12px; font-size: 16px; border: 2px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; }
-        .help-text { font-size: 12px; color: #64748b; margin-top: 5px; line-height: 1.5; display: block; }
-        .btn-save { background: #10b981; color: white; border: none; padding: 15px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; width: 100%; transition: 0.2s;}
+        .help-text { font-size: 13px; color: #64748b; margin-top: 5px; display: block; }
+        .btn-save { background: #10b981; color: white; border: none; padding: 15px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; width: 100%; transition: 0.2s; margin-top: 10px;}
         .btn-save:hover { background: #059669; }
-        .header-title { text-align: center; color: #0f172a; margin-top: 0; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px;}
+        
+        .loket-row { display: flex; gap: 10px; margin-bottom: 10px; }
+        .btn-remove { background: #ef4444; color: white; border: none; padding: 0 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-add { background: #3b82f6; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; }
+        
         .alert { background: #d1fae5; color: #065f46; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 15px; display: none; font-weight: bold;}
     </style>
 </head>
 <body>
 
     <div class="setting-card">
-        <h2 class="header-title">⚙️ Pengaturan Media Layar TV</h2>
+        <h2 style="text-align: center; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; margin-top:0;">⚙️ Pengaturan Sistem</h2>
         
-        <div id="alertSuccess" class="alert">✅ Pengaturan berhasil disimpan! TV akan otomatis berubah.</div>
+        <div id="alertSuccess" class="alert">✅ Pengaturan berhasil disimpan! Sistem akan otomatis berubah.</div>
 
+        <!-- PENGATURAN TEKS BERJALAN -->
         <div class="form-group">
-            <label>Jenis Tampilan (Media)</label>
-            <select id="media-type" onchange="changeHelpText()">
-                <option value="images">🖼️ Slideshow Gambar (Otomatis Berganti)</option>
-                <option value="youtube">📺 Video YouTube (Otomatis Putar Ulang)</option>
-                <option value="gslides">📊 Google Slides (Presentasi/PPT)</option>
-            </select>
+            <label>Teks Berjalan (Marquee) TV</label>
+            <textarea id="setting-marquee" rows="3" placeholder="Masukkan teks info/pengumuman..."></textarea>
         </div>
 
+        <!-- PENGATURAN LOKET -->
         <div class="form-group">
-            <label>Masukkan Link / Konten</label>
-            <textarea id="media-content" rows="5" placeholder="Masukkan link di sini..."></textarea>
-            <span id="help-text" class="help-text">
-                <b>Cara mengisi:</b> Masukkan link gambar (berakhiran .jpg/.png). Jika lebih dari satu gambar, pisahkan dengan tanda koma (,).
-            </span>
+            <label>Pengaturan Loket</label>
+            <span class="help-text" style="margin-bottom:10px;">Loket yang ditambahkan di sini akan otomatis membuat kolom baru di Layar TV dan Panel Admin.</span>
+            <div id="loket-container">
+                <!-- Baris loket akan di-generate via JS -->
+            </div>
+            <button class="btn-add" onclick="tambahBarisLoket('')">➕ Tambah Loket Baru</button>
+        </div>
+
+        <!-- PENGATURAN MEDIA -->
+        <div class="form-group">
+            <label>Media Layar TV</label>
+            <select id="media-type" style="margin-bottom: 10px;" onchange="changeHelpText()">
+                <option value="images">🖼️ Slideshow Gambar (Otomatis)</option>
+                <option value="youtube">📺 Video YouTube (Auto-Play)</option>
+                <option value="gslides">📊 Google Slides (PPT)</option>
+            </select>
+            <textarea id="media-content" rows="3" placeholder="Masukkan link..."></textarea>
+            <span id="help-text" class="help-text"></span>
         </div>
 
         <button class="btn-save" onclick="simpanPengaturan()">💾 SIMPAN PENGATURAN</button>
-        <a href="/" style="display:block; text-align:center; margin-top:15px; color:#3b82f6; text-decoration:none;">⬅️ Kembali ke TV</a>
+        <a href="/" style="display:block; text-align:center; margin-top:20px; color:#3b82f6; text-decoration:none;">⬅️ Kembali ke TV</a>
     </div>
 
     <script type="module">
@@ -61,42 +76,66 @@
         
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-        const settingsRef = ref(db, 'cibeureum_settings/media');
+        const settingsRef = ref(db, 'cibeureum_settings');
 
-        // Mengambil data saat ini ketika halaman dibuka
-        get(settingsRef).then((snapshot) => {
-            if (snapshot.exists()) {
-                const data = snapshot.val();
-                document.getElementById('media-type').value = data.type;
-                document.getElementById('media-content').value = data.content;
-                window.changeHelpText();
-            }
-        });
-
-        // Mengubah teks bantuan berdasarkan pilihan dropdown
-        window.changeHelpText = function() {
-            let type = document.getElementById('media-type').value;
-            let helpBox = document.getElementById('help-text');
-            if (type === 'images') {
-                helpBox.innerHTML = "<b>Cara mengisi:</b> Paste link/URL gambar. Jika lebih dari 1 gambar, pisahkan dengan koma (,).<br>Contoh: <i>https://linkgambar.com/1.jpg, https://linkgambar.com/2.jpg</i>";
-            } else if (type === 'youtube') {
-                helpBox.innerHTML = "<b>Cara mengisi:</b> Masukkan hanya <b>ID Video YouTube</b> saja (Bukan link panjang).<br>Contoh: Jika linknya <i>https://www.youtube.com/watch?v=<b>dQw4w9WgXcQ</b></i>, maka masukkan <b>dQw4w9WgXcQ</b>";
-            } else if (type === 'gslides') {
-                helpBox.innerHTML = "<b>Cara mengisi:</b> Buka Google Slides Anda -> File -> Bagikan -> Publikasikan ke Web -> Sematkan (Embed) -> Salin <b>HANYA link (src)</b> yang ada di dalam tanda kutip.<br>Contoh: <i>https://docs.google.com/presentation/d/e/.../embed?start=true</i>";
-            }
+        // Fungsi Menambah Kolom Input Loket
+        window.tambahBarisLoket = function(nilai) {
+            const container = document.getElementById('loket-container');
+            const div = document.createElement('div');
+            div.className = 'loket-row';
+            div.innerHTML = `
+                <input type="text" class="loket-input" placeholder="Nama Loket (Contoh: Loket 1)" value="${nilai}">
+                <button class="btn-remove" onclick="this.parentElement.remove()">X</button>
+            `;
+            container.appendChild(div);
         }
 
-        // Menyimpan ke Firebase
-        window.simpanPengaturan = function() {
+        // Ambil Data Saat Ini
+        get(settingsRef).then((snapshot) => {
+            let data = snapshot.val();
+            
+            // Set Marquee
+            document.getElementById('setting-marquee').value = data?.marquee || "Selamat Datang di Pusat Pelayanan Masyarakat Kelurahan Cibeureum.";
+            
+            // Set Media
+            if(data?.media) {
+                document.getElementById('media-type').value = data.media.type;
+                document.getElementById('media-content').value = data.media.content;
+            }
+            window.changeHelpText();
+
+            // Set Daftar Loket
+            let daftarLoket = data?.lokets || ["Loket 1", "Loket 2"];
+            daftarLoket.forEach(loket => tambahBarisLoket(loket));
+        });
+
+        // Bantuan Media
+        window.changeHelpText = function() {
             let type = document.getElementById('media-type').value;
-            let content = document.getElementById('media-content').value;
+            let help = document.getElementById('help-text');
+            if (type === 'images') help.innerHTML = "Pisahkan URL dengan tanda koma (,) untuk >1 gambar.";
+            else if (type === 'youtube') help.innerHTML = "Masukkan <b>ID Video YouTube</b> (Misal: dQw4w9WgXcQ).";
+            else if (type === 'gslides') help.innerHTML = "Masukkan link Embed src Google Slides.";
+        }
 
-            if(!content) { alert("Konten tidak boleh kosong!"); return; }
+        // Simpan Semua
+        window.simpanPengaturan = function() {
+            // Ambil array dari input loket, buang yang kosong
+            let loketInputs = document.querySelectorAll('.loket-input');
+            let arrayLoket = Array.from(loketInputs).map(inp => inp.value.trim()).filter(val => val !== "");
+            
+            if(arrayLoket.length === 0) { alert("Minimal harus ada 1 loket!"); return; }
 
-            set(settingsRef, {
-                type: type,
-                content: content
-            }).then(() => {
+            let dataSimpan = {
+                marquee: document.getElementById('setting-marquee').value,
+                lokets: arrayLoket,
+                media: {
+                    type: document.getElementById('media-type').value,
+                    content: document.getElementById('media-content').value
+                }
+            };
+
+            set(settingsRef, dataSimpan).then(() => {
                 let alertBox = document.getElementById('alertSuccess');
                 alertBox.style.display = 'block';
                 setTimeout(() => { alertBox.style.display = 'none'; }, 4000);

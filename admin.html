@@ -20,10 +20,9 @@
     <div class="admin-card">
         <h2 style="color:#0f172a; margin-top:0;">Panel Pemanggil</h2>
         
+        <!-- Pilihan Loket Ini Kini Akan Otomatis Terisi Oleh Firebase -->
         <select id="pilihan-loket" class="loket-select">
-            <option value="Loket 1">Loket 1</option>
-            <option value="Loket 2">Loket 2</option>
-            <option value="Pelayanan Umum">Pelayanan Umum</option>
+            <option>Memuat Loket...</option>
         </select>
         
         <p style="margin-bottom:0; color:gray;">Sisa Antrian: <b id="sisa-antrian" style="color:black; font-size:24px;">0</b></p>
@@ -42,16 +41,25 @@
             apiKey: "AIzaSyDciXMHMtqypmfhLw2am_GAn3FV1bBjcKo",
             authDomain: "antrian-cibeureum-f125b.firebaseapp.com",
             databaseURL: "https://antrian-cibeureum-f125b-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "antrian-cibeureum-f125b",
-            storageBucket: "antrian-cibeureum-f125b.firebasestorage.app",
-            messagingSenderId: "715978413563",
-            appId: "1:715978413563:web:31c62bd0430bbb3e6ee75e"
+            projectId: "antrian-cibeureum-f125b"
         };
         
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
+        
+        // 1. Dengarkan Perubahan Daftar Loket
+        onValue(ref(db, 'cibeureum_settings/lokets'), (snapshot) => {
+            const lokets = snapshot.val() || ["Loket 1"];
+            const dropdown = document.getElementById('pilihan-loket');
+            dropdown.innerHTML = '';
+            lokets.forEach(nama => {
+                dropdown.innerHTML += `<option value="${nama}">${nama}</option>`;
+            });
+        });
+
+        // 2. Dengarkan Status Antrian
         const queueRef = ref(db, 'cibeureum_queue');
-        let dataAntrian = { total: 0, call: 0, loket: "Menunggu..." };
+        let dataAntrian = { total: 0, call: 0, loket: "Menunggu...", status: {} };
 
         onValue(queueRef, (snapshot) => {
             const data = snapshot.val();
@@ -66,23 +74,35 @@
         window.panggilSelanjutnya = function() {
             if (dataAntrian.call < dataAntrian.total) {
                 dataAntrian.call++;
-                dataAntrian.loket = document.getElementById('pilihan-loket').value;
-                set(queueRef, dataAntrian); // Sync ke TV
-                mainkanDingdongLaluSuara(dataAntrian.call, dataAntrian.loket);
+                let loketTujuan = document.getElementById('pilihan-loket').value;
+                dataAntrian.loket = loketTujuan;
+                
+                // Simpan nomor A berapa yang dipanggil ke loket tersebut (Untuk ditampilkan di Grid TV)
+                if(!dataAntrian.status) dataAntrian.status = {};
+                dataAntrian.status[loketTujuan] = dataAntrian.call;
+
+                set(queueRef, dataAntrian);
+                mainkanDingdongLaluSuara(dataAntrian.call, loketTujuan);
             } else { alert('Semua antrian sudah dipanggil!'); }
         }
 
         window.panggilUlang = function() {
             if (dataAntrian.call > 0) {
-                dataAntrian.loket = document.getElementById('pilihan-loket').value;
-                set(queueRef, dataAntrian); // Sync ke TV
-                mainkanDingdongLaluSuara(dataAntrian.call, dataAntrian.loket);
+                let loketTujuan = document.getElementById('pilihan-loket').value;
+                dataAntrian.loket = loketTujuan;
+                
+                // Pastikan grid TV tidak hilang saat panggil ulang
+                if(!dataAntrian.status) dataAntrian.status = {};
+                dataAntrian.status[loketTujuan] = dataAntrian.call;
+
+                set(queueRef, dataAntrian); 
+                mainkanDingdongLaluSuara(dataAntrian.call, loketTujuan);
             } else { alert('Belum ada nomor yang dipanggil.'); }
         }
 
         window.resetSemua = function() {
-            if(confirm("Yakin mereset antrian ke A0?")) {
-                set(queueRef, { total: 0, call: 0, loket: "Menunggu..." });
+            if(confirm("Yakin mereset antrian ke A0? (Kolom TV juga akan dikosongkan)")) {
+                set(queueRef, { total: 0, call: 0, loket: "Menunggu...", status: {} });
             }
         }
 

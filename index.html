@@ -5,22 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Layar TV Antrian</title>
     <style>
-        :root { --primary: #0f172a; --secondary: #1e293b; --accent: #3b82f6; --danger: #ef4444; }
+        :root { --primary: #0f172a; --secondary: #1e293b; --accent: #3b82f6; --danger: #ef4444; --warning: #f59e0b;}
         * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { margin: 0; padding: 0; background-color: #e2e8f0; overflow: hidden; }
         
         .header { background: var(--primary); color: white; padding: 20px; text-align: center; font-size: 24px; font-weight: bold; }
-        .tv-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 20px; height: 80vh; }
+        .tv-grid { display: grid; grid-template-columns: 2fr 1.2fr; gap: 20px; padding: 20px; height: 80vh; }
         
-        /* Container Media Dinamis */
         .tv-media { background: black; border-radius: 12px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2);}
         .tv-media img, .tv-media iframe { width: 100%; height: 100%; object-fit: cover; border: none; }
         
-        .tv-card { background: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border: 5px solid var(--accent); display: flex; flex-direction: column; justify-content: center;}
-        .tv-title { font-size: 30px; font-weight: bold; color: var(--secondary); margin-bottom: 20px;}
-        .tv-number { font-size: 150px; font-weight: 900; color: var(--danger); line-height: 1; margin: 10px 0;}
-        .tv-loket { font-size: 40px; font-weight: bold; background: var(--primary); color: white; padding: 15px; border-radius: 12px; }
+        /* Area Kanan (Panggilan Utama + Grid Loket) */
+        .tv-right-panel { display: flex; flex-direction: column; gap: 15px; }
         
+        .tv-card { background: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border: 5px solid var(--accent); flex: 1; display: flex; flex-direction: column; justify-content: center;}
+        .tv-title { font-size: 24px; font-weight: bold; color: var(--secondary); margin-bottom: 10px;}
+        .tv-number { font-size: 130px; font-weight: 900; color: var(--danger); line-height: 1; margin: 0;}
+        .tv-loket { font-size: 35px; font-weight: bold; background: var(--primary); color: white; padding: 10px; border-radius: 12px; margin-top: 15px;}
+        
+        /* Grid Dinamis untuk Kolom Tiap Loket */
+        .loket-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 15px; }
+        .loket-box { background: var(--secondary); color: white; padding: 15px; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);}
+        .loket-box-title { font-size: 16px; font-weight: bold; color: #cbd5e1; margin-bottom: 5px; }
+        .loket-box-number { font-size: 35px; font-weight: bold; color: var(--warning); line-height: 1;}
+
         .marquee { background: var(--primary); color: white; padding: 15px; font-size: 24px; position: fixed; bottom: 0; width: 100%; white-space: nowrap; }
         .marquee span { display: inline-block; animation: scroll 20s linear infinite; }
         @keyframes scroll { from { transform: translateX(100vw); } to { transform: translateX(-100%); } }
@@ -31,21 +39,28 @@
     <div class="header">🏢 KELURAHAN CIBEUREUM</div>
     
     <div class="tv-grid">
-        <!-- Area Media Dinamis dari Firebase -->
+        <!-- Media -->
         <div id="media-container" class="tv-media">
             <h1 style="color:white;">Memuat Media...</h1>
         </div>
         
-        <!-- Area Antrian -->
-        <div class="tv-card">
-            <div class="tv-title">NOMOR PANGGILAN</div>
-            <div id="tv-number" class="tv-number">A0</div>
-            <div id="tv-loket" class="tv-loket">Menunggu...</div>
+        <!-- Panggilan -->
+        <div class="tv-right-panel">
+            <div class="tv-card">
+                <div class="tv-title">SEDANG DIPANGGIL</div>
+                <div id="tv-number" class="tv-number">A0</div>
+                <div id="tv-loket" class="tv-loket">Menunggu...</div>
+            </div>
+            
+            <!-- Kolom Nomor Masing-Masing Loket -->
+            <div id="loket-grid" class="loket-grid">
+                <!-- Diisi otomatis oleh JS -->
+            </div>
         </div>
     </div>
     
     <div class="marquee">
-        <span>Selamat Datang di Pusat Pelayanan Masyarakat Kelurahan Cibeureum. Budayakan antri demi kenyamanan bersama.</span>
+        <span id="tv-marquee">Memuat Informasi...</span>
     </div>
 
     <script type="module">
@@ -56,63 +71,89 @@
             apiKey: "AIzaSyDciXMHMtqypmfhLw2am_GAn3FV1bBjcKo",
             authDomain: "antrian-cibeureum-f125b.firebaseapp.com",
             databaseURL: "https://antrian-cibeureum-f125b-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "antrian-cibeureum-f125b",
-            storageBucket: "antrian-cibeureum-f125b.firebasestorage.app",
-            messagingSenderId: "715978413563",
-            appId: "1:715978413563:web:31c62bd0430bbb3e6ee75e"
+            projectId: "antrian-cibeureum-f125b"
         };
         
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         
-        // 1. LISTEN ANTRIAN (Queue)
+        let daftarLoketAktif = [];
+        let statusNomorLoket = {};
+        let slideInterval;
+
+        // 1. LISTEN SETTINGS (Loket, Marquee, Media)
+        onValue(ref(db, 'cibeureum_settings'), (snapshot) => {
+            const data = snapshot.val();
+            if(!data) return;
+
+            // Marquee
+            document.getElementById('tv-marquee').innerText = data.marquee || "Selamat Datang.";
+
+            // Loket Grid
+            if(data.lokets) {
+                daftarLoketAktif = data.lokets;
+                renderKolomLoket();
+            }
+
+            // Media
+            if(data.media) renderMedia(data.media);
+        });
+
+        // 2. LISTEN ANTRIAN (Nomor Utama & Status per Loket)
         onValue(ref(db, 'cibeureum_queue'), (snapshot) => {
             const data = snapshot.val();
             if (data) {
+                // Update Panggilan Utama
                 document.getElementById('tv-number').innerText = data.call > 0 ? 'A' + data.call : 'A0';
                 document.getElementById('tv-loket').innerText = data.call > 0 ? data.loket : 'Menunggu...';
+                
+                // Simpan state status loket saat ini
+                statusNomorLoket = data.status || {};
+                renderKolomLoket();
             }
         });
 
-        // 2. LISTEN PENGATURAN MEDIA (Settings)
-        let slideInterval;
-        onValue(ref(db, 'cibeureum_settings/media'), (snapshot) => {
-            const mediaData = snapshot.val();
-            const container = document.getElementById('media-container');
+        // Merender kotak-kotak loket di bawah panggilan utama
+        function renderKolomLoket() {
+            const grid = document.getElementById('loket-grid');
+            grid.innerHTML = '';
             
-            clearInterval(slideInterval); // Hapus interval lama jika ada perubahan
+            daftarLoketAktif.forEach(namaLoket => {
+                // Jika loket tersebut punya antrian yg sedang dilayani, tampilkan angkanya. Jika tidak, strip (--)
+                let nomorDiLoket = statusNomorLoket[namaLoket] ? 'A' + statusNomorLoket[namaLoket] : '--';
+                
+                grid.innerHTML += `
+                    <div class="loket-box">
+                        <div class="loket-box-title">${namaLoket}</div>
+                        <div class="loket-box-number">${nomorDiLoket}</div>
+                    </div>
+                `;
+            });
+        }
 
-            if (!mediaData) {
-                // Default jika belum disetting
-                container.innerHTML = `<img src="https://images.unsplash.com/photo-1541888004688-a68196ed5b42?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80">`;
-                return;
-            }
-
+        // Render Media
+        function renderMedia(mediaData) {
+            const container = document.getElementById('media-container');
+            clearInterval(slideInterval);
+            
             if (mediaData.type === 'youtube') {
-                // Memutar YouTube (Mute agar tidak bentrok suara panggilan)
                 let ytId = mediaData.content.trim();
                 container.innerHTML = `<iframe src="https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}&controls=0" allow="autoplay" allowfullscreen></iframe>`;
-            
             } else if (mediaData.type === 'gslides') {
-                // Menampilkan Google Slides
-                container.innerHTML = `<iframe src="${mediaData.content}" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>`;
-            
+                container.innerHTML = `<iframe src="${mediaData.content}" allowfullscreen></iframe>`;
             } else if (mediaData.type === 'images') {
-                // Menampilkan Slideshow Gambar
                 let urls = mediaData.content.split(',').map(url => url.trim()).filter(url => url !== "");
                 if (urls.length === 0) return;
-
                 container.innerHTML = `<img id="slider-img" src="${urls[0]}">`;
-                
                 if (urls.length > 1) {
                     let currentSlide = 0;
                     slideInterval = setInterval(() => {
                         currentSlide = (currentSlide + 1) % urls.length;
                         document.getElementById('slider-img').src = urls[currentSlide];
-                    }, 5000); // Berganti setiap 5 detik
+                    }, 5000);
                 }
             }
-        });
+        }
     </script>
 </body>
 </html>
