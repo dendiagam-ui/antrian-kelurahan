@@ -1,0 +1,16 @@
+{
+  "name": "Cetak Tiket Antrian",
+  "short_name": "Cetak Tiket",
+  "start_url": "/kios.html",
+  "display": "standalone",
+  "background_color": "#e2e8f0",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2620/2620572.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

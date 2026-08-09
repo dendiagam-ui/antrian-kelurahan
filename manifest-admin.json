@@ -1,0 +1,16 @@
+{
+  "name": "Panggil Antrian Cibeureum",
+  "short_name": "Panggil Antrian",
+  "start_url": "/admin.html",
+  "display": "standalone",
+  "background_color": "#e2e8f0",
+  "theme_color": "#3b82f6",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2620/2620572.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
