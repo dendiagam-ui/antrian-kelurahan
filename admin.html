@@ -20,7 +20,7 @@
     <div class="admin-card">
         <h2>Panel Pemanggil Loket</h2>
         
-        <label style="font-weight:bold; display:block; text-align:left; margin-bottom:5px;">Loket Anda:</label>
+        <label style="font-weight:bold; display:block; text-align:left; margin-bottom:5px;">Loket Anda (Tujuan Suara):</label>
         <select id="pilihan-loket"></select>
 
         <label style="font-weight:bold; display:block; text-align:left; margin-bottom:5px;">Kategori Antrian DIPANGGIL:</label>
@@ -49,6 +49,7 @@
         
         let qData = { totals: {}, calls: {}, status: {} };
 
+        // Dengarkan Data Setup
         onValue(ref(db, 'cibeureum_settings'), snapshot => {
             let data = snapshot.val() || {};
             
@@ -61,6 +62,7 @@
             (data.kodes || [{kode:"A", nama:"Umum"}]).forEach(k => kSelect.innerHTML += `<option value="${k.kode}">Kode ${k.kode} (${k.nama})</option>`);
         });
 
+        // Dengarkan Antrian Aktif
         onValue(ref(db, 'cibeureum_queue'), snapshot => {
             let data = snapshot.val();
             if(data) {
@@ -83,32 +85,48 @@
                 qData.displayCode = fullCode;
                 qData.loket = loket;
                 qData.call = nextNo;
-
+                
                 if(!qData.status) qData.status = {};
                 qData.status[loket] = fullCode;
 
+                // TAMBAHAN: Set Timestamp agar Layar TV merespon suaranya
+                qData.timestamp = Date.now();
+
                 set(ref(db, 'cibeureum_queue'), qData);
-                mainkanSuara(kode, nextNo, loket);
+                
+                // Putar suara di HP Admin juga
+                mainkanSuaraAdmin(kode, nextNo, loket);
             } else {
-                alert(`Antrian untuk Kode ${kode} sudah habis / belum ada pendaftar baru!`);
+                alert(`Antrian untuk Kode ${kode} belum ada pendaftar baru!`);
             }
         }
 
         window.panggilUlang = function() {
-            if(qData.displayCode) {
+            if(qData.displayCode && qData.displayCode !== 'A0') {
                 let kode = document.getElementById('pilihan-kode').value;
                 let loket = document.getElementById('pilihan-loket').value;
-                mainkanSuara(kode, qData.call, loket);
-            } else { alert("Belum ada antrian yang dipanggil."); }
+                
+                // Hanya update timestamp untuk men-trigger suara di TV
+                qData.timestamp = Date.now();
+                qData.loket = loket; // Setel ke loket yg memanggil ulang
+                if(!qData.status) qData.status = {};
+                qData.status[loket] = qData.displayCode;
+
+                set(ref(db, 'cibeureum_queue'), qData); 
+                
+                // Putar suara di HP Admin
+                mainkanSuaraAdmin(kode, qData.call, loket);
+            } else { alert("Belum ada antrian yang bisa dipanggil."); }
         }
 
         window.resetSemua = function() {
-            if(confirm("Yakin mereset semua nomor antrian?")) {
-                set(ref(db, 'cibeureum_queue'), { totals: {}, calls: {}, status: {}, displayCode: "A0" });
+            if(confirm("Yakin mereset semua nomor antrian kembali ke 0?")) {
+                set(ref(db, 'cibeureum_queue'), { totals: {}, calls: {}, status: {}, displayCode: "A0", timestamp: Date.now() });
             }
         }
 
-        function mainkanSuara(kode, nomor, loket) {
+        // Suara Lokal Untuk HP Admin
+        function mainkanSuaraAdmin(kode, nomor, loket) {
             let b1 = document.getElementById('btnCall'), b2 = document.getElementById('btnRecall');
             b1.disabled = true; b2.disabled = true;
 

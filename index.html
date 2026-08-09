@@ -9,7 +9,12 @@
         * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { margin: 0; padding: 0; background-color: #e2e8f0; overflow: hidden; }
         
-        .header { background: var(--primary); color: white; padding: 20px; text-align: center; font-size: 26px; font-weight: bold; }
+        .header { background: var(--primary); color: white; padding: 20px; text-align: center; font-size: 26px; font-weight: bold; position: relative;}
+        
+        /* Tombol Izin Suara */
+        .btn-audio { position: absolute; right: 20px; top: 15px; background: var(--danger); color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
         .tv-grid { display: grid; grid-template-columns: 2.2fr 1.2fr; gap: 20px; padding: 20px; height: 80vh; }
         
         .tv-media { background: white; border-radius: 12px; display: flex; flex-direction: column; position: relative; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); padding: 15px;}
@@ -26,7 +31,6 @@
         .loket-box-title { font-size: 14px; font-weight: bold; color: #cbd5e1; }
         .loket-box-number { font-size: 32px; font-weight: bold; color: var(--warning); line-height: 1;}
 
-        /* Styling Tabel Status Dokumen */
         .doc-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         .doc-table th, .doc-table td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 16px; }
         .doc-table th { background: var(--primary); color: white; border-radius: 4px;}
@@ -43,15 +47,16 @@
 </head>
 <body>
 
-    <div class="header">🏢 KELURAHAN CIBEUREUM</div>
+    <div class="header">
+        🏢 KELURAHAN CIBEUREUM
+        <button id="btn-audio" class="btn-audio" onclick="aktifkanSuara()">🔊 Klik 1x Untuk Aktifkan Suara</button>
+    </div>
     
     <div class="tv-grid">
-        <!-- Media Kiri (Tabel Dokumen / Gambar / Video) -->
         <div id="media-container" class="tv-media">
             <h2>Memuat Media...</h2>
         </div>
         
-        <!-- Panggilan Kanan -->
         <div class="tv-right-panel">
             <div class="tv-card">
                 <div class="tv-title">SEDANG DIPANGGIL</div>
@@ -80,6 +85,17 @@
         
         let daftarLoket = [];
         let statusLoket = {};
+        let lastTimestamp = null; // Menyimpan waktu panggilan terakhir
+        let suaraDiizinkan = false;
+
+        // Fungsi menghilangkan tombol izin suara
+        window.aktifkanSuara = function() {
+            suaraDiizinkan = true;
+            document.getElementById('btn-audio').style.display = 'none';
+            // Mainkan suara kosong singkat untuk "memancing" mesin suara browser
+            let dummy = new SpeechSynthesisUtterance('');
+            window.speechSynthesis.speak(dummy);
+        }
 
         // Settings Listener
         onValue(ref(db, 'cibeureum_settings'), snapshot => {
@@ -91,56 +107,73 @@
             if(data.media) renderMedia(data.media);
         });
 
-        // Queue Listener
+        // Queue Listener (Trigger Suara Jika Ada Panggilan Baru/Ulang)
         onValue(ref(db, 'cibeureum_queue'), snapshot => {
             let data = snapshot.val();
             if(data) {
-                document.getElementById('tv-number').innerText = data.displayCode || 'A0';
+                let nomorLayar = data.displayCode || 'A0';
+                document.getElementById('tv-number').innerText = nomorLayar;
                 document.getElementById('tv-loket').innerText = data.call > 0 ? data.loket : 'Menunggu...';
+                
                 statusLoket = data.status || {};
                 renderLoketGrid();
+
+                // Deteksi Panggilan: Jika ada timestamp dan waktunya beda dari yang lama = PANGGIL!
+                if (data.timestamp && lastTimestamp !== null && data.timestamp !== lastTimestamp) {
+                    if(suaraDiizinkan && nomorLayar !== 'A0') {
+                        // Pisahkan Kode Huruf dan Angka (Misal: A15 -> Kode: A, Nomor: 15)
+                        let kodeHuruf = nomorLayar.charAt(0);
+                        let angkaAntrian = parseInt(nomorLayar.substring(1));
+                        mainkanDingdongLaluSuara(kodeHuruf, angkaAntrian, data.loket);
+                    }
+                }
+                lastTimestamp = data.timestamp || null;
             }
         });
 
-        // Status Dokumen Listener (Real-time update ke TV jika dipilih)
+        // === FUNGSI SUARA TTS ===
+        function mainkanDingdongLaluSuara(kode, nomor, loket) {
+            let audio = new Audio('https://actions.google.com/sounds/v1/alarms/ding_dong_kellogg_chime.ogg');
+            audio.play().then(() => {
+                audio.onended = () => { panggilBot(kode, nomor, loket); };
+            }).catch(() => { panggilBot(kode, nomor, loket); }); // Jika audio error, tetap jalankan bot
+        }
+
+        function terbilang(n) {
+            let b = ["", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", "delapan", "sembilan", "sepuluh", "sebelas"];
+            if (n < 12) return b[n];
+            if (n < 20) return b[n - 10] + " belas";
+            if (n < 100) return b[Math.floor(n / 10)] + " puluh" + (n % 10 > 0 ? " " + b[n % 10] : "");
+            return n;
+        }
+
+        function panggilBot(kode, nomor, loket) {
+            if ('speechSynthesis' in window) {
+                let teks = `Nomor Antrian, ${kode}, ${terbilang(nomor)}, Silakan menuju, ${loket}.`;
+                let ucapan = new SpeechSynthesisUtterance(teks);
+                ucapan.lang = 'id-ID'; 
+                ucapan.rate = 0.85;
+                window.speechSynthesis.speak(ucapan);
+            }
+        }
+
         function listenDokumen() {
             onValue(ref(db, 'cibeureum_dokumen'), snapshot => {
                 let data = snapshot.val();
                 let container = document.getElementById('media-container');
+                let html = `<h2 style="margin:0 0 10px 0; color:#0f172a; border-bottom:2px solid #e2e8f0; padding-bottom:10px;">📋 STATUS DOKUMEN PERMOHONAN WARGA</h2><table class="doc-table"><thead><tr><th>Nama Pemohon</th><th>Layanan</th><th>Status Proses</th></tr></thead><tbody>`;
                 
-                let html = `
-                    <h2 style="margin:0 0 10px 0; color:#0f172a; border-bottom:2px solid #e2e8f0; padding-bottom:10px;">📋 STATUS DOKUMEN PERMOHONAN WARGA</h2>
-                    <table class="doc-table">
-                        <thead>
-                            <tr>
-                                <th>Nama Pemohon</th>
-                                <th>Layanan</th>
-                                <th>Status Proses</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                `;
-
-                if(!data) {
-                    html += `<tr><td colspan="3" style="text-align:center;">Belum ada data permohonan.</td></tr>`;
-                } else {
+                if(!data) { html += `<tr><td colspan="3" style="text-align:center;">Belum ada data permohonan.</td></tr>`; } 
+                else {
                     Object.keys(data).forEach(key => {
                         let item = data[key];
-                        let badgeClass = 'bg-operator';
-                        if(item.status === 'Verifikasi') badgeClass = 'bg-verifikasi';
-                        if(item.status === 'Menunggu TTE') badgeClass = 'bg-tte';
-                        if(item.status === 'Selesai') badgeClass = 'bg-selesai';
-
-                        html += `
-                            <tr>
-                                <td><b>${item.nama}</b></td>
-                                <td>${item.layanan}</td>
-                                <td><span class="badge ${badgeClass}">${item.status}</span></td>
-                            </tr>
-                        `;
+                        let bC = 'bg-operator';
+                        if(item.status === 'Verifikasi') bC = 'bg-verifikasi';
+                        if(item.status === 'Menunggu TTE') bC = 'bg-tte';
+                        if(item.status === 'Selesai') bC = 'bg-selesai';
+                        html += `<tr><td><b>${item.nama}</b></td><td>${item.layanan}</td><td><span class="badge ${bC}">${item.status}</span></td></tr>`;
                     });
                 }
-
                 html += `</tbody></table>`;
                 container.innerHTML = html;
             });
@@ -151,26 +184,16 @@
             grid.innerHTML = '';
             daftarLoket.forEach(loket => {
                 let val = statusLoket[loket] || '--';
-                grid.innerHTML += `
-                    <div class="loket-box">
-                        <div class="loket-box-title">${loket}</div>
-                        <div class="loket-box-number">${val}</div>
-                    </div>
-                `;
+                grid.innerHTML += `<div class="loket-box"><div class="loket-box-title">${loket}</div><div class="loket-box-number">${val}</div></div>`;
             });
         }
 
         function renderMedia(mediaData) {
-            let container = document.getElementById('media-container');
-            if(mediaData.type === 'status_dokumen') {
-                listenDokumen();
-            } else if (mediaData.type === 'youtube') {
-                container.innerHTML = `<iframe src="https://www.youtube.com/embed/${mediaData.content}?autoplay=1&mute=1&loop=1&playlist=${mediaData.content}"></iframe>`;
-            } else if (mediaData.type === 'gslides') {
-                container.innerHTML = `<iframe src="${mediaData.content}"></iframe>`;
-            } else if (mediaData.type === 'images') {
-                container.innerHTML = `<img src="${mediaData.content.split(',')[0]}">`;
-            }
+            let c = document.getElementById('media-container');
+            if(mediaData.type === 'status_dokumen') listenDokumen();
+            else if (mediaData.type === 'youtube') c.innerHTML = `<iframe src="https://www.youtube.com/embed/${mediaData.content}?autoplay=1&mute=1&loop=1&playlist=${mediaData.content}"></iframe>`;
+            else if (mediaData.type === 'gslides') c.innerHTML = `<iframe src="${mediaData.content}"></iframe>`;
+            else if (mediaData.type === 'images') c.innerHTML = `<img src="${mediaData.content.split(',')[0]}">`;
         }
     </script>
 </body>
