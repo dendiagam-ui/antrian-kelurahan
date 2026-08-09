@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Antrian Cibeureum</title>
+    
+    <!-- TAG PWA: Agar bisa di-install menjadi Aplikasi Android via Chrome -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+
+    <style>
+        /* === GLOBAL STYLES === */
+        :root {
+            --primary: #0f172a; --secondary: #1e293b; --accent: #3b82f6;
+            --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
+            --dark: #0f172a;
+        }
+        * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { margin: 0; padding: 0; background-color: #e2e8f0; color: var(--dark); overflow-x: hidden; }
+        
+        /* === NAVBAR === */
+        .navbar {
+            background: var(--primary); padding: 15px 20px; display: flex; 
+            justify-content: space-between; align-items: center; color: white;
+        }
+        .nav-brand { font-size: 20px; font-weight: bold; letter-spacing: 1px; }
+        .nav-menu { display: flex; gap: 10px; }
+        .nav-btn {
+            background: var(--secondary); color: white; border: none; padding: 8px 15px;
+            border-radius: 6px; cursor: pointer; transition: 0.3s; font-weight: 600;
+        }
+        .nav-btn:hover, .nav-btn.active { background: var(--accent); }
+
+        /* === TAB CONTENT === */
+        .tab-content { display: none; padding: 20px; max-width: 1400px; margin: 0 auto; min-height: 85vh; }
+        .tab-content.active { display: block; animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* === LAYAR TV === */
+        .tv-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; height: 75vh; }
+        .tv-media { background: black; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; overflow: hidden; position: relative; }
+        .tv-media img { width: 100%; height: 100%; object-fit: cover; opacity: 0.8; }
+        .tv-media-text { position: absolute; font-size: 30px; font-weight: bold; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); }
+        .tv-queue { display: flex; flex-direction: column; gap: 20px; }
+        .tv-card { background: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); flex: 1; display: flex; flex-direction: column; justify-content: center;}
+        .tv-title { font-size: 24px; font-weight: bold; color: var(--secondary); margin-bottom: 10px;}
+        .tv-number { font-size: 100px; font-weight: 900; color: var(--danger); line-height: 1; margin: 10px 0;}
+        .tv-loket { font-size: 30px; font-weight: bold; background: var(--primary); color: white; padding: 10px; border-radius: 8px; }
+        
+        .marquee-container { background: var(--primary); color: white; padding: 12px; font-size: 20px; position: fixed; bottom: 0; width: 100%; white-space: nowrap; }
+        .marquee-text { display: inline-block; animation: scrollText 20s linear infinite; }
+        @keyframes scrollText { from { transform: translateX(100vw); } to { transform: translateX(-100%); } }
+
+        /* === KIOS & ADMIN === */
+        .kiosk-card, .admin-card { background: white; padding: 40px; border-radius: 20px; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); margin: 0 auto; max-width: 600px;}
+        .btn-kiosk { background: var(--success); color: white; border: none; padding: 30px; font-size: 28px; font-weight: bold; border-radius: 15px; cursor: pointer; width: 100%; transition: 0.2s;}
+        .btn-kiosk:active { transform: scale(0.95); }
+        .admin-btn { width: 100%; padding: 15px; font-size: 18px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; margin-top: 15px; color: white;}
+        .admin-btn:disabled { background: #cbd5e1 !important; cursor: not-allowed; }
+        .btn-call { background: var(--accent); }
+        .btn-recall { background: var(--warning); }
+        .btn-reset { background: var(--danger); margin-top: 40px;}
+        .loket-select { width: 100%; padding: 12px; font-size: 18px; border-radius: 8px; border: 2px solid #cbd5e1; margin-bottom: 20px; font-weight: bold;}
+
+        /* === PRINT MEDIA === */
+        @media screen { #print-area { display: none; } }
+        @media print {
+            body > *:not(#print-area) { display: none; }
+            #print-area { display: block; width: 58mm; margin: 0 auto; text-align: center; font-family: monospace; color: black; }
+            .p-num { font-size: 50px; font-weight: bold; margin: 10px 0; }
+        }
+        
+        /* Responsif Navbar untuk Layar Kecil */
+        @media (max-width: 768px) {
+            .navbar { flex-direction: column; gap: 15px; }
+            .tv-grid { grid-template-columns: 1fr; height: auto; }
+            .tv-media { height: 250px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="navbar">
+        <div class="nav-brand">🏢 KELURAHAN CIBEUREUM</div>
+        <div class="nav-menu">
+            <button class="nav-btn active" onclick="openTab('tab-tv')">📺 Layar TV</button>
+            <button class="nav-btn" onclick="openTab('tab-kiosk')">🎫 Kios Cetak</button>
+            <button class="nav-btn" onclick="openTab('tab-admin')">👨‍💻 Admin Loket</button>
+        </div>
+    </div>
+
+    <!-- TAB 1: LAYAR TV -->
+    <div id="tab-tv" class="tab-content active">
+        <div class="tv-grid">
+            <div class="tv-media">
+                <img src="https://images.unsplash.com/photo-1541888004688-a68196ed5b42?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80" alt="Layanan">
+                <div class="tv-media-text">PELAYANAN MASYARAKAT</div>
+            </div>
+            <div class="tv-queue">
+                <div class="tv-card" style="border: 4px solid var(--accent);">
+                    <div class="tv-title">NOMOR PANGGILAN</div>
+                    <div id="tv-number" class="tv-number">A0</div>
+                    <div id="tv-loket" class="tv-loket">Menunggu...</div>
+                </div>
+            </div>
+        </div>
+        <div class="marquee-container">
+            <div class="marquee-text">Selamat Datang di Pusat Pelayanan Masyarakat Kelurahan Cibeureum. Budayakan antri demi kenyamanan bersama.</div>
+        </div>
+    </div>
+
+    <!-- TAB 2: KIOS CETAK -->
+    <div id="tab-kiosk" class="tab-content">
+        <div class="kiosk-card">
+            <h2>Ambil Nomor Antrian</h2>
+            <button class="btn-kiosk" onclick="ambilAntrian()">🖨️ CETAK TIKET</button>
+            <p style="font-size: 18px; margin-top:20px;">Sisa Antrian: <b id="sisa-antrian">0</b> Orang</p>
+        </div>
+    </div>
+
+    <!-- TAB 3: ADMIN LOKET -->
+    <div id="tab-admin" class="tab-content">
+        <div class="admin-card">
+            <h2>Panel Pemanggil</h2>
+            <select id="pilihan-loket" class="loket-select">
+                <option value="Loket 1">Loket 1</option>
+                <option value="Loket 2">Loket 2</option>
+                <option value="Pelayanan Umum">Pelayanan Umum</option>
+            </select>
+            <h1 style="color: var(--accent); margin: 5px 0; font-size:60px;" id="admin-current">A0</h1>
+            <p>Sedang dipanggil</p>
+
+            <button id="btnCall" class="admin-btn btn-call" onclick="panggilSelanjutnya()">📢 Panggil Selanjutnya</button>
+            <button id="btnRecall" class="admin-btn btn-recall" onclick="panggilUlang()">🔄 Panggil Ulang</button>
+            <button class="admin-btn btn-reset" onclick="resetSemua()">⚠️ Reset Sistem (Kembali ke A0)</button>
+        </div>
+    </div>
+
+    <!-- AREA STRUK PRINT -->
+    <div id="print-area">
+        <div style="font-weight: bold;">KELURAHAN CIBEUREUM</div>
+        <div style="font-size: 12px;" id="print-date"></div>
+        <div>NOMOR ANTRIAN</div>
+        <div class="p-num" id="print-number">A0</div>
+        <div>Pelayanan Masyarakat</div>
+    </div>
+
+    <!-- SCRIPT FIREBASE & LOGIKA -->
+    <script type="module">
+        // Import module Firebase versi 12.17.1 sesuai kode Anda
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
+        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-database.js";
+
+        // Konfigurasi Asli Milik Anda
+        const firebaseConfig = {
+            apiKey: "AIzaSyDciXMHMtqypmfhLw2am_GAn3FV1bBjcKo",
+            authDomain: "antrian-cibeureum-f125b.firebaseapp.com",
+            databaseURL: "https://antrian-cibeureum-f125b-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "antrian-cibeureum-f125b",
+            storageBucket: "antrian-cibeureum-f125b.firebasestorage.app",
+            messagingSenderId: "715978413563",
+            appId: "1:715978413563:web:31c62bd0430bbb3e6ee75e"
+        };
+        
+        let app, db, queueRef;
+        let dataAntrian = { total: 0, call: 0, loket: "Menunggu..." };
+        let isFirebaseActive = false;
+
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getDatabase(app);
+            queueRef = ref(db, 'cibeureum_queue');
+            isFirebaseActive = true;
+            
+            // MENDENGARKAN PERUBAHAN DATA DARI SERVER (Sync Antar PC/HP secara Realtime)
+            onValue(queueRef, (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    dataAntrian = data;
+                    updateLayar();
+                }
+            });
+        } catch (error) {
+            console.error("Koneksi Firebase gagal. Periksa jaringan internet.", error);
+        }
+
+        // --- Fungsi Tab ---
+        window.openTab = function(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        // --- Fungsi Update UI (Layar) ---
+        function updateLayar() {
+            let panggil = dataAntrian.call;
+            let total = dataAntrian.total;
+            let sisa = total - panggil;
+            let nomorText = panggil > 0 ? 'A' + panggil : 'A0';
+
+            document.getElementById('tv-number').innerText = nomorText;
+            document.getElementById('tv-loket').innerText = panggil > 0 ? dataAntrian.loket : 'Menunggu...';
+            document.getElementById('admin-current').innerText = nomorText;
+            document.getElementById('sisa-antrian').innerText = sisa < 0 ? 0 : sisa;
+        }
+
+        // --- Fungsi Simpan ke Server ---
+        function simpanKeServer() {
+            if (isFirebaseActive) {
+                set(queueRef, dataAntrian); // Mengirim data baru ke Firebase
+            } else {
+                updateLayar(); 
+            }
+        }
+
+        // --- Fungsi Kios: Ambil Antrian ---
+        window.ambilAntrian = function() {
+            dataAntrian.total++;
+            simpanKeServer();
+            
+            document.getElementById('print-number').innerText = 'A' + dataAntrian.total;
+            document.getElementById('print-date').innerText = new Date().toLocaleString('id-ID');
+            window.print();
+        }
+
+        // --- Fungsi Reset ---
+        window.resetSemua = function() {
+            if(confirm("Yakin mereset antrian ke A0?")) {
+                dataAntrian = { total: 0, call: 0, loket: "Menunggu..." };
+                simpanKeServer();
+            }
+        }
+
+        // ==========================================
+        // LOGIKA SUARA: DINGDONG + TEXT TO SPEECH
+        // ==========================================
+        window.panggilSelanjutnya = function() {
+            if (dataAntrian.call < dataAntrian.total) {
+                dataAntrian.call++;
+                dataAntrian.loket = document.getElementById('pilihan-loket').value;
+                simpanKeServer();
+                mainkanDingdongLaluSuara(dataAntrian.call, dataAntrian.loket);
+            } else {
+                alert('Semua antrian sudah dipanggil!');
+            }
+        }
+
+        window.panggilUlang = function() {
+            if (dataAntrian.call > 0) {
+                dataAntrian.loket = document.getElementById('pilihan-loket').value;
+                simpanKeServer();
+                mainkanDingdongLaluSuara(dataAntrian.call, dataAntrian.loket);
+            } else {
+                alert('Belum ada nomor yang dipanggil.');
+            }
+        }
+
+        // 1. Mainkan Dingdong dulu, baru bicara
+        function mainkanDingdongLaluSuara(nomor, loket) {
+            let btn1 = document.getElementById('btnCall');
+            let btn2 = document.getElementById('btnRecall');
+            btn1.disabled = true; btn2.disabled = true;
+
+            // Audio dingdong resmi dari server Google
+            let dingdong = new Audio('https://actions.google.com/sounds/v1/alarms/ding_dong_kellogg_chime.ogg');
+            
+            dingdong.play().then(() => {
+                dingdong.onended = () => { panggilBot(nomor, loket, btn1, btn2); };
+            }).catch((err) => {
+                panggilBot(nomor, loket, btn1, btn2);
+            });
+        }
+
+        // 2. Terbilang
+        function terbilang(angka) {
+            let bil = ["", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", "delapan", "sembilan", "sepuluh", "sebelas"];
+            if (angka < 12) return bil[angka];
+            if (angka < 20) return bil[angka - 10] + " belas";
+            if (angka < 100) return bil[Math.floor(angka / 10)] + " puluh" + (angka % 10 > 0 ? " " + bil[angka % 10] : "");
+            return angka;
+        }
+
+        // 3. Mesin Bot Text to Speech
+        function panggilBot(nomor, loket, btn1, btn2) {
+            if ('speechSynthesis' in window) {
+                let teks = `Nomor Antrian, A, ${terbilang(nomor)}, Silakan menuju, ${loket}.`;
+                let ucapan = new SpeechSynthesisUtterance(teks);
+                ucapan.lang = 'id-ID';
+                ucapan.rate = 0.85;
+
+                ucapan.onend = function() { btn1.disabled = false; btn2.disabled = false; };
+                ucapan.onerror = function() { btn1.disabled = false; btn2.disabled = false; };
+
+                window.speechSynthesis.speak(ucapan);
+            }
+        }
+        
+        updateLayar(); // Init saat web dibuka
+    </script>
+</body>
+</html>
