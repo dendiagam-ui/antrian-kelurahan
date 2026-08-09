@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pengaturan Layar TV</title>
+    <style>
+        body { font-family: sans-serif; background: #e2e8f0; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px;}
+        .setting-card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 600px; }
+        .form-group { margin-bottom: 20px; }
+        label { font-weight: bold; display: block; margin-bottom: 8px; color: #1e293b; }
+        select, textarea, input { width: 100%; padding: 12px; font-size: 16px; border: 2px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; }
+        .help-text { font-size: 12px; color: #64748b; margin-top: 5px; line-height: 1.5; display: block; }
+        .btn-save { background: #10b981; color: white; border: none; padding: 15px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; width: 100%; transition: 0.2s;}
+        .btn-save:hover { background: #059669; }
+        .header-title { text-align: center; color: #0f172a; margin-top: 0; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px;}
+        .alert { background: #d1fae5; color: #065f46; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 15px; display: none; font-weight: bold;}
+    </style>
+</head>
+<body>
+
+    <div class="setting-card">
+        <h2 class="header-title">⚙️ Pengaturan Media Layar TV</h2>
+        
+        <div id="alertSuccess" class="alert">✅ Pengaturan berhasil disimpan! TV akan otomatis berubah.</div>
+
+        <div class="form-group">
+            <label>Jenis Tampilan (Media)</label>
+            <select id="media-type" onchange="changeHelpText()">
+                <option value="images">🖼️ Slideshow Gambar (Otomatis Berganti)</option>
+                <option value="youtube">📺 Video YouTube (Otomatis Putar Ulang)</option>
+                <option value="gslides">📊 Google Slides (Presentasi/PPT)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Masukkan Link / Konten</label>
+            <textarea id="media-content" rows="5" placeholder="Masukkan link di sini..."></textarea>
+            <span id="help-text" class="help-text">
+                <b>Cara mengisi:</b> Masukkan link gambar (berakhiran .jpg/.png). Jika lebih dari satu gambar, pisahkan dengan tanda koma (,).
+            </span>
+        </div>
+
+        <button class="btn-save" onclick="simpanPengaturan()">💾 SIMPAN PENGATURAN</button>
+        <a href="/" style="display:block; text-align:center; margin-top:15px; color:#3b82f6; text-decoration:none;">⬅️ Kembali ke TV</a>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
+        import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDciXMHMtqypmfhLw2am_GAn3FV1bBjcKo",
+            authDomain: "antrian-cibeureum-f125b.firebaseapp.com",
+            databaseURL: "https://antrian-cibeureum-f125b-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "antrian-cibeureum-f125b",
+            storageBucket: "antrian-cibeureum-f125b.firebasestorage.app",
+            messagingSenderId: "715978413563",
+            appId: "1:715978413563:web:31c62bd0430bbb3e6ee75e"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const settingsRef = ref(db, 'cibeureum_settings/media');
+
+        // Mengambil data saat ini ketika halaman dibuka
+        get(settingsRef).then((snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                document.getElementById('media-type').value = data.type;
+                document.getElementById('media-content').value = data.content;
+                window.changeHelpText();
+            }
+        });
+
+        // Mengubah teks bantuan berdasarkan pilihan dropdown
+        window.changeHelpText = function() {
+            let type = document.getElementById('media-type').value;
+            let helpBox = document.getElementById('help-text');
+            if (type === 'images') {
+                helpBox.innerHTML = "<b>Cara mengisi:</b> Paste link/URL gambar. Jika lebih dari 1 gambar, pisahkan dengan koma (,).<br>Contoh: <i>https://linkgambar.com/1.jpg, https://linkgambar.com/2.jpg</i>";
+            } else if (type === 'youtube') {
+                helpBox.innerHTML = "<b>Cara mengisi:</b> Masukkan hanya <b>ID Video YouTube</b> saja (Bukan link panjang).<br>Contoh: Jika linknya <i>https://www.youtube.com/watch?v=<b>dQw4w9WgXcQ</b></i>, maka masukkan <b>dQw4w9WgXcQ</b>";
+            } else if (type === 'gslides') {
+                helpBox.innerHTML = "<b>Cara mengisi:</b> Buka Google Slides Anda -> File -> Bagikan -> Publikasikan ke Web -> Sematkan (Embed) -> Salin <b>HANYA link (src)</b> yang ada di dalam tanda kutip.<br>Contoh: <i>https://docs.google.com/presentation/d/e/.../embed?start=true</i>";
+            }
+        }
+
+        // Menyimpan ke Firebase
+        window.simpanPengaturan = function() {
+            let type = document.getElementById('media-type').value;
+            let content = document.getElementById('media-content').value;
+
+            if(!content) { alert("Konten tidak boleh kosong!"); return; }
+
+            set(settingsRef, {
+                type: type,
+                content: content
+            }).then(() => {
+                let alertBox = document.getElementById('alertSuccess');
+                alertBox.style.display = 'block';
+                setTimeout(() => { alertBox.style.display = 'none'; }, 4000);
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Loket Antrian</title>
+    <style>
+        body { font-family: sans-serif; background: #e2e8f0; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding:20px;}
+        .admin-card { background: white; padding: 30px; border-radius: 20px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 500px;}
+        .admin-btn { width: 100%; padding: 20px; font-size: 20px; font-weight: bold; border: none; border-radius: 12px; cursor: pointer; margin-top: 15px; color: white;}
+        .admin-btn:disabled { background: #cbd5e1 !important; cursor: not-allowed; }
+        .btn-call { background: #3b82f6; }
+        .btn-recall { background: #f59e0b; }
+        .btn-reset { background: #ef4444; margin-top: 40px;}
+        .loket-select { width: 100%; padding: 15px; font-size: 20px; border-radius: 8px; border: 2px solid #cbd5e1; margin-bottom: 20px; font-weight: bold;}
+    </style>
+</head>
+<body>
+
+    <div class="admin-card">
+        <h2 style="color:#0f172a; margin-top:0;">Panel Pemanggil</h2>
+        
+        <select id="pilihan-loket" class="loket-select">
+            <option value="Loket 1">Loket 1</option>
+            <option value="Loket 2">Loket 2</option>
+            <option value="Pelayanan Umum">Pelayanan Umum</option>
+        </select>
+        
+        <p style="margin-bottom:0; color:gray;">Sisa Antrian: <b id="sisa-antrian" style="color:black; font-size:24px;">0</b></p>
+        <h1 style="color: #3b82f6; font-size:80px; margin: 10px 0;" id="admin-current">A0</h1>
+        
+        <button id="btnCall" class="admin-btn btn-call" onclick="panggilSelanjutnya()">📢 Panggil Selanjutnya</button>
+        <button id="btnRecall" class="admin-btn btn-recall" onclick="panggilUlang()">🔄 Panggil Ulang</button>
+        <button class="admin-btn btn-reset" onclick="resetSemua()">⚠️ Reset Sistem (Kembali ke A0)</button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
+        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDciXMHMtqypmfhLw2am_GAn3FV1bBjcKo",
+            authDomain: "antrian-cibeureum-f125b.firebaseapp.com",
+            databaseURL: "https://antrian-cibeureum-f125b-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "antrian-cibeureum-f125b",
+            storageBucket: "antrian-cibeureum-f125b.firebasestorage.app",
+            messagingSenderId: "715978413563",
+            appId: "1:715978413563:web:31c62bd0430bbb3e6ee75e"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const queueRef = ref(db, 'cibeureum_queue');
+        let dataAntrian = { total: 0, call: 0, loket: "Menunggu..." };
+
+        onValue(queueRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                dataAntrian = data;
+                let sisa = data.total - data.call;
+                document.getElementById('admin-current').innerText = data.call > 0 ? 'A' + data.call : 'A0';
+                document.getElementById('sisa-antrian').innerText = sisa < 0 ? 0 : sisa;
+            }
+        });
+
+        window.panggilSelanjutnya = function() {
+            if (dataAntrian.call < dataAntrian.total) {
+                dataAntrian.call++;
+                dataAntrian.loket = document.getElementById('pilihan-loket').value;
+                set(queueRef, dataAntrian); // Sync ke TV
+                mainkanDingdongLaluSuara(dataAntrian.call, dataAntrian.loket);
+            } else { alert('Semua antrian sudah dipanggil!'); }
+        }
+
+        window.panggilUlang = function() {
+            if (dataAntrian.call > 0) {
+                dataAntrian.loket = document.getElementById('pilihan-loket').value;
+                set(queueRef, dataAntrian); // Sync ke TV
+                mainkanDingdongLaluSuara(dataAntrian.call, dataAntrian.loket);
+            } else { alert('Belum ada nomor yang dipanggil.'); }
+        }
+
+        window.resetSemua = function() {
+            if(confirm("Yakin mereset antrian ke A0?")) {
+                set(queueRef, { total: 0, call: 0, loket: "Menunggu..." });
+            }
+        }
+
+        // ==========================================
+        // LOGIKA AUDIO (Dingdong + Bot TTS)
+        // ==========================================
+        function mainkanDingdongLaluSuara(nomor, loket) {
+            let btn1 = document.getElementById('btnCall'), btn2 = document.getElementById('btnRecall');
+            btn1.disabled = true; btn2.disabled = true;
+
+            let dingdong = new Audio('https://actions.google.com/sounds/v1/alarms/ding_dong_kellogg_chime.ogg');
+            dingdong.play().then(() => {
+                dingdong.onended = () => { panggilBot(nomor, loket, btn1, btn2); };
+            }).catch(() => { panggilBot(nomor, loket, btn1, btn2); });
+        }
+
+        function terbilang(angka) {
+            let bil = ["", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", "delapan", "sembilan", "sepuluh", "sebelas"];
+            if (angka < 12) return bil[angka];
+            if (angka < 20) return bil[angka - 10] + " belas";
+            if (angka < 100) return bil[Math.floor(angka / 10)] + " puluh" + (angka % 10 > 0 ? " " + bil[angka % 10] : "");
+            return angka;
+        }
+
+        function panggilBot(nomor, loket, btn1, btn2) {
+            if ('speechSynthesis' in window) {
+                let teks = `Nomor Antrian, A, ${terbilang(nomor)}, Silakan menuju, ${loket}.`;
+                let ucapan = new SpeechSynthesisUtterance(teks);
+                ucapan.lang = 'id-ID'; ucapan.rate = 0.85;
+                ucapan.onend = function() { btn1.disabled = false; btn2.disabled = false; };
+                ucapan.onerror = function() { btn1.disabled = false; btn2.disabled = false; };
+                window.speechSynthesis.speak(ucapan);
+            }
+        }
+    </script>
+</body>
+</html>

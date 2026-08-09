@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kios Mesin Antrian</title>
+    <style>
+        body { font-family: sans-serif; background: #e2e8f0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .kiosk-card { background: white; padding: 50px; border-radius: 20px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 90%; max-width: 500px; }
+        .btn-kiosk { background: #10b981; color: white; border: none; padding: 40px; font-size: 32px; font-weight: bold; border-radius: 15px; cursor: pointer; width: 100%; margin-top: 20px;}
+        .btn-kiosk:active { transform: scale(0.95); }
+        
+        @media screen { #print-area { display: none; } }
+        @media print {
+            body > *:not(#print-area) { display: none; }
+            #print-area { display: block; width: 58mm; margin: 0 auto; text-align: center; font-family: monospace; color: black; }
+            .p-num { font-size: 50px; font-weight: bold; margin: 10px 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="kiosk-card">
+        <h1>Selamat Datang</h1>
+        <p style="font-size:20px; color:gray;">Silakan ambil tiket antrian Anda</p>
+        <button class="btn-kiosk" onclick="ambilAntrian()">🖨️ CETAK TIKET</button>
+    </div>
+
+    <!-- AREA STRUK PRINT -->
+    <div id="print-area">
+        <div style="font-weight: bold;">KELURAHAN CIBEUREUM</div>
+        <div style="font-size: 12px;" id="print-date"></div>
+        <div>NOMOR ANTRIAN</div>
+        <div class="p-num" id="print-number">A0</div>
+        <div>Pelayanan Masyarakat</div>
+        <div style="font-size: 10px; margin-top:10px;">Budayakan antri demi kenyamanan bersama.</div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
+        import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDciXMHMtqypmfhLw2am_GAn3FV1bBjcKo",
+            authDomain: "antrian-cibeureum-f125b.firebaseapp.com",
+            databaseURL: "https://antrian-cibeureum-f125b-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "antrian-cibeureum-f125b",
+            storageBucket: "antrian-cibeureum-f125b.firebasestorage.app",
+            messagingSenderId: "715978413563",
+            appId: "1:715978413563:web:31c62bd0430bbb3e6ee75e"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const queueRef = ref(db, 'cibeureum_queue');
+
+        window.ambilAntrian = async function() {
+            // Mengambil data saat ini dari server terlebih dahulu
+            const snapshot = await get(queueRef);
+            let data = snapshot.val() || { total: 0, call: 0, loket: "Menunggu..." };
+            
+            data.total++;
+            await set(queueRef, data); // Update total ke server
+            
+            // Set struk
+            document.getElementById('print-number').innerText = 'A' + data.total;
+            document.getElementById('print-date').innerText = new Date().toLocaleString('id-ID');
+            window.print();
+        }
+    </script>
+</body>
+</html>
