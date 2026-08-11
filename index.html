@@ -131,12 +131,17 @@
             }
         });
 
-        // === FUNGSI SUARA TTS ===
+// === FUNGSI SUARA TTS ===
         function mainkanDingdongLaluSuara(kode, nomor, loket) {
-            let audio = new Audio('https://actions.google.com/sounds/v1/alarms/ding_dong_kellogg_chime.ogg');
+            // Menggunakan file MP3 lokal yang ada di folder project
+            let audio = new Audio('dingdong.mp3');
+            
             audio.play().then(() => {
                 audio.onended = () => { panggilBot(kode, nomor, loket); };
-            }).catch(() => { panggilBot(kode, nomor, loket); }); // Jika audio error, tetap jalankan bot
+            }).catch((err) => { 
+                console.warn("Dingdong gagal diputar:", err);
+                panggilBot(kode, nomor, loket); 
+            });
         }
 
         function terbilang(n) {
