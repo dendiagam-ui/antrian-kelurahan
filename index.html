@@ -133,11 +133,20 @@
 
 // === FUNGSI SUARA TTS ===
         function mainkanDingdongLaluSuara(kode, nomor, loket) {
-            // Menggunakan file MP3 lokal yang ada di folder project
             let audio = new Audio('dingdong.mp3');
             
             audio.play().then(() => {
-                audio.onended = () => { panggilBot(kode, nomor, loket); };
+                // Ambil total durasi audio dingdong dalam satuan milidetik
+                let durasiMs = audio.duration * 1000;
+                
+                // Hitung waktu tunggu: Total durasi dikurangi 2 detik (2000 ms)
+                // Jika audio ternyata kurang dari 2 detik, bot akan langsung bicara (delay 0)
+                let waktuTunggu = (durasiMs > 2000) ? (durasiMs - 2000) : 0;
+                
+                setTimeout(() => {
+                    panggilBot(kode, nomor, loket);
+                }, waktuTunggu);
+                
             }).catch((err) => { 
                 console.warn("Dingdong gagal diputar:", err);
                 panggilBot(kode, nomor, loket); 
