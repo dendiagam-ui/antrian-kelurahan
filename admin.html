@@ -4,34 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Loket Antrian</title>
-    
-<!-- TAG PWA: Agar Admin Bisa Di-install -->
     <link rel="manifest" href="manifest-admin.json">
     <meta name="theme-color" content="#3b82f6">
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2620/2620572.png">
-    
     <style>
-        body { font-family: sans-serif; background: #e2e8f0; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding:20px;}
-        .admin-card { background: white; padding: 30px; border-radius: 20px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 500px;}
-        .admin-btn { width: 100%; padding: 18px; font-size: 18px; font-weight: bold; border: none; border-radius: 12px; cursor: pointer; margin-top: 10px; color: white;}
-        .admin-btn:disabled { background: #cbd5e1 !important; cursor: not-allowed; }
-        .btn-call { background: #3b82f6; }
-        .btn-recall { background: #f59e0b; }
-        .btn-reset { background: #ef4444; margin-top: 30px;}
+        body { font-family: sans-serif; background: #e2e8f0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding:20px;}
+        .admin-card { background: white; padding: 30px; border-radius: 20px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 600px; margin-bottom: 20px;}
+        .admin-btn { width: 100%; padding: 15px; font-size: 18px; font-weight: bold; border: none; border-radius: 12px; cursor: pointer; margin-top: 10px; color: white;}
+        .admin-btn:disabled { background: #cbd5e1 !important; }
+        .btn-call { background: #3b82f6; } .btn-recall { background: #f59e0b; } .btn-reset { background: #ef4444; margin-top: 20px;}
         select { width: 100%; padding: 12px; font-size: 18px; border-radius: 8px; border: 2px solid #cbd5e1; margin-bottom: 15px; font-weight: bold;}
-        
         .info-box { background: #f1f5f9; padding: 15px; border-radius: 12px; margin: 20px 0; border: 1px solid #e2e8f0; }
+        
+        /* Tombol Update Tracking */
+        .btn-track { padding: 8px 10px; border: none; border-radius: 6px; font-weight: bold; font-size:12px; cursor: pointer; color: white;}
     </style>
 </head>
 <body>
 
     <div class="admin-card">
         <h2>Panel Pemanggil Loket</h2>
-        
-        <label style="font-weight:bold; display:block; text-align:left; margin-bottom:5px;">Loket Anda (Tujuan Suara):</label>
         <select id="pilihan-loket"></select>
-
-        <label style="font-weight:bold; display:block; text-align:left; margin-bottom:5px;">Kategori Antrian DIPANGGIL:</label>
         <select id="pilihan-kode" onchange="updateInfoSelanjutnya()"></select>
 
         <h1 style="color: #3b82f6; font-size:75px; margin: 10px 0;" id="admin-current">--</h1>
@@ -39,13 +31,17 @@
         <button id="btnCall" class="admin-btn btn-call" onclick="panggilSelanjutnya()">📢 Panggil Selanjutnya</button>
         <button id="btnRecall" class="admin-btn btn-recall" onclick="panggilUlang()">🔄 Panggil Ulang</button>
         
-        <!-- INFO ANTRIAN SELANJUTNYA -->
         <div class="info-box">
             <span style="color:#64748b; font-size:14px; font-weight:bold;">Menunggu Antrian Berikutnya:</span><br>
             <strong id="admin-next" style="font-size:28px; color:#10b981;">--</strong>
         </div>
-
         <button class="admin-btn btn-reset" onclick="resetSemua()">⚠️ Reset Semua Antrian</button>
+    </div>
+
+    <!-- PANEL TRACKING DOKUMEN -->
+    <div class="admin-card" style="text-align: left;">
+        <h3 style="margin-top: 0; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">📋 Update Proses Berkas</h3>
+        <div id="tracking-list" style="display: flex; flex-direction: column; gap: 15px;"></div>
     </div>
 
     <script type="module">
@@ -58,28 +54,21 @@
             databaseURL: "https://antrian-cibeureum-f125b-default-rtdb.asia-southeast1.firebasedatabase.app",
             projectId: "antrian-cibeureum-f125b"
         };
-        
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-        
         let qData = { totals: {}, calls: {}, status: {} };
 
-        // Dengarkan Data Setup
+        // 1. DATA SETUP
         onValue(ref(db, 'cibeureum_settings'), snapshot => {
             let data = snapshot.val() || {};
-            
-            let lSelect = document.getElementById('pilihan-loket');
-            lSelect.innerHTML = '';
+            let lSelect = document.getElementById('pilihan-loket'); lSelect.innerHTML = '';
             (data.lokets || ["Loket 1"]).forEach(l => lSelect.innerHTML += `<option value="${l}">${l}</option>`);
-
-            let kSelect = document.getElementById('pilihan-kode');
-            kSelect.innerHTML = '';
-            (data.kodes || [{kode:"A", nama:"Umum"}]).forEach(k => kSelect.innerHTML += `<option value="${k.kode}">Kode ${k.kode} (${k.nama})</option>`);
-            
+            let kSelect = document.getElementById('pilihan-kode'); kSelect.innerHTML = '';
+            (data.kodes || [{kode:"A", nama:"Umum"}]).forEach(k => kSelect.innerHTML += `<option value="${k.kode}">Kode ${k.kode}</option>`);
             updateInfoSelanjutnya();
         });
 
-        // Dengarkan Antrian Aktif
+        // 2. DATA ANTRIAN
         onValue(ref(db, 'cibeureum_queue'), snapshot => {
             let data = snapshot.val();
             if(data) {
@@ -89,85 +78,116 @@
             }
         });
 
-        // FUNGSI CEK ANTRIAN SELANJUTNYA
+        // 3. DATA TRACKING (PANEL BAWAH)
+        onValue(ref(db, 'cibeureum_tracking'), snapshot => {
+            let data = snapshot.val();
+            let container = document.getElementById('tracking-list');
+            container.innerHTML = '';
+
+            if(data) {
+                // Tampilkan dari yang terbaru
+                let sortedData = Object.keys(data).map(key => ({ nomor: key, ...data[key] })).sort((a, b) => b.timestamp - a.timestamp);
+
+                sortedData.forEach(item => {
+                    if (item.status === 'Selesai') return; // Sembunyikan yang sudah selesai
+                    container.innerHTML += `
+                        <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #cbd5e1;">
+                            <strong style="font-size: 20px;">${item.nomor}</strong> - <span style="color:#3b82f6; font-weight:bold;">${item.status}</span>
+                            <div style="margin-top: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
+                                <button onclick="updateStatus('${item.nomor}', 'Input Operator')" class="btn-track" style="background:#3b82f6;">Input Operator</button>
+                                <button onclick="updateStatus('${item.nomor}', 'Verifikasi')" class="btn-track" style="background:#f59e0b;">Verifikasi</button>
+                                <button onclick="updateStatus('${item.nomor}', 'Menunggu TTE')" class="btn-track" style="background:#6366f1;">Menunggu TTE</button>
+                                <button onclick="updateStatus('${item.nomor}', 'Selesai')" class="btn-track" style="background:#10b981;">✅ Selesai</button>
+                            </div>
+                            <div style="margin-top: 10px; display: flex; gap: 5px;">
+                                <input type="text" id="ket-${item.nomor}" value="${item.ket}" placeholder="Ket tambahan..." style="width: 70%; padding: 8px; border-radius:4px; border:1px solid #ccc;">
+                                <button onclick="updateKet('${item.nomor}')" style="width: 30%; background:#0f172a; color:white; border:none; cursor:pointer; border-radius:4px;">Simpan Ket</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else { container.innerHTML = '<p style="color:gray;">Belum ada dokumen yang diproses.</p>'; }
+        });
+
+        window.updateStatus = function(nomor, statusBaru) { set(ref(db, `cibeureum_tracking/${nomor}/status`), statusBaru); }
+        window.updateKet = function(nomor) {
+            let ketBaru = document.getElementById(`ket-${nomor}`).value;
+            set(ref(db, `cibeureum_tracking/${nomor}/ket`), ketBaru);
+        }
+
         window.updateInfoSelanjutnya = function() {
             let kode = document.getElementById('pilihan-kode').value;
             if(!kode) return;
-
             let currentCall = (qData.calls && qData.calls[kode]) ? qData.calls[kode] : 0;
             let totalPrinted = (qData.totals && qData.totals[kode]) ? qData.totals[kode] : 0;
-            let nextNo = currentCall + 1;
-
             let textNext = document.getElementById('admin-next');
-            if (nextNo <= totalPrinted) {
-                textNext.innerText = kode + nextNo;
-                textNext.style.color = "#10b981"; // Hijau = Ada orang
+            if (currentCall + 1 <= totalPrinted) {
+                textNext.innerText = kode + (currentCall + 1);
+                textNext.style.color = "#10b981"; 
             } else {
                 textNext.innerText = "Belum Ada Pendaftar";
-                textNext.style.color = "#ef4444"; // Merah = Kosong
+                textNext.style.color = "#ef4444"; 
             }
         }
 
         window.panggilSelanjutnya = function() {
             let kode = document.getElementById('pilihan-kode').value;
             let loket = document.getElementById('pilihan-loket').value;
-
             if(!qData.calls) qData.calls = {};
             let nextNo = (qData.calls[kode] || 0) + 1;
             let maxNo = (qData.totals && qData.totals[kode]) ? qData.totals[kode] : 0;
 
             if(nextNo <= maxNo) {
-                qData.calls[kode] = nextNo;
                 let fullCode = kode + nextNo;
+                qData.calls[kode] = nextNo;
                 qData.displayCode = fullCode;
-                qData.loket = loket;
-                qData.call = nextNo;
-                
+                qData.loket = loket; qData.call = nextNo;
                 if(!qData.status) qData.status = {};
                 qData.status[loket] = fullCode;
                 qData.timestamp = Date.now();
 
+                // 1. Simpan Antrian
                 set(ref(db, 'cibeureum_queue'), qData);
-                mainkanSuaraAdmin(kode, nextNo, loket);
-            } else {
-                alert(`Antrian untuk Kategori ${kode} kosong / belum ada warga yang mencetak tiket baru!`);
-            }
+                // 2. OTOMATIS TAMBAHKAN KE TABEL TRACKING BERKAS
+                set(ref(db, `cibeureum_tracking/${fullCode}`), { status: "Pemeriksaan Berkas", ket: "-", timestamp: Date.now() });
+                
+                // 3. Bunyikan Suara
+                mainkanSuara(kode, nextNo, loket);
+            } else { alert("Antrian kosong!"); }
         }
 
         window.panggilUlang = function() {
-            if(qData.displayCode && qData.displayCode !== 'A0' && qData.displayCode !== '--') {
-                let kode = document.getElementById('pilihan-kode').value;
+            if(qData.displayCode && qData.displayCode !== '--') {
                 let loket = document.getElementById('pilihan-loket').value;
-                
-                qData.timestamp = Date.now();
-                qData.loket = loket; 
-                if(!qData.status) qData.status = {};
-                qData.status[loket] = qData.displayCode;
-
+                qData.timestamp = Date.now(); qData.loket = loket; 
                 set(ref(db, 'cibeureum_queue'), qData); 
-                mainkanSuaraAdmin(kode, qData.call, loket);
-            } else { alert("Belum ada antrian yang bisa dipanggil."); }
-        }
-
-        window.resetSemua = function() {
-            if(confirm("Yakin mereset semua nomor antrian kembali ke 0?")) {
-                set(ref(db, 'cibeureum_queue'), { totals: {}, calls: {}, status: {}, displayCode: "A0", timestamp: Date.now() });
+                mainkanSuara(document.getElementById('pilihan-kode').value, qData.call, loket);
             }
         }
 
-        function mainkanSuaraAdmin(kode, nomor, loket) {
+        window.resetSemua = function() {
+            if(confirm("Yakin mereset sistem? Semua nomor & tracking akan dihapus.")) {
+                set(ref(db, 'cibeureum_queue'), { totals: {}, calls: {}, status: {}, displayCode: "A0", timestamp: Date.now() });
+                set(ref(db, 'cibeureum_tracking'), null); // Bersihkan tabel tracking
+            }
+        }
+
+        function mainkanSuara(kode, nomor, loket) {
             let b1 = document.getElementById('btnCall'), b2 = document.getElementById('btnRecall');
             b1.disabled = true; b2.disabled = true;
 
-            let audio = new Audio('https://actions.google.com/sounds/v1/alarms/ding_dong_kellogg_chime.ogg');
+            let audio = new Audio('dingdong.mp3');
             audio.play().then(() => {
-                audio.onended = () => {
+                let durasiMs = audio.duration * 1000;
+                let waktuTunggu = (durasiMs > 2000) ? (durasiMs - 2000) : 0; // Delay overlap 2 detik
+                
+                setTimeout(() => {
                     let teks = `Nomor Antrian, ${kode}, ${terbilang(nomor)}, Silakan menuju, ${loket}.`;
                     let ucapan = new SpeechSynthesisUtterance(teks);
                     ucapan.lang = 'id-ID'; ucapan.rate = 0.85;
                     ucapan.onend = () => { b1.disabled = false; b2.disabled = false; };
                     window.speechSynthesis.speak(ucapan);
-                };
+                }, waktuTunggu);
             }).catch(() => { b1.disabled = false; b2.disabled = false; });
         }
 

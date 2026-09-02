@@ -6,39 +6,30 @@
     <title>Layar TV Antrian</title>
     <style>
         :root { --primary: #0f172a; --secondary: #1e293b; --accent: #3b82f6; --danger: #ef4444; --warning: #f59e0b;}
-        * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
-        body { margin: 0; padding: 0; background-color: #e2e8f0; overflow: hidden; }
-        
+        body { margin: 0; padding: 0; background-color: #e2e8f0; overflow: hidden; font-family: sans-serif; }
         .header { background: var(--primary); color: white; padding: 20px; text-align: center; font-size: 26px; font-weight: bold; position: relative;}
         
-        /* Tombol Izin Suara */
         .btn-audio { position: absolute; right: 20px; top: 15px; background: var(--danger); color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; animation: pulse 2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
         .tv-grid { display: grid; grid-template-columns: 2.2fr 1.2fr; gap: 20px; padding: 20px; height: 80vh; }
-        
-        .tv-media { background: white; border-radius: 12px; display: flex; flex-direction: column; position: relative; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); padding: 15px;}
+        .tv-media { background: white; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); padding: 15px;}
         .tv-media img, .tv-media iframe { width: 100%; height: 100%; object-fit: cover; border: none; }
         
         .tv-right-panel { display: flex; flex-direction: column; gap: 15px; }
         .tv-card { background: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border: 5px solid var(--accent); flex: 1; display: flex; flex-direction: column; justify-content: center;}
-        .tv-title { font-size: 24px; font-weight: bold; color: var(--secondary); margin-bottom: 10px;}
         .tv-number { font-size: 110px; font-weight: 900; color: var(--danger); line-height: 1; margin: 0;}
         .tv-loket { font-size: 32px; font-weight: bold; background: var(--primary); color: white; padding: 10px; border-radius: 12px; margin-top: 15px;}
         
         .loket-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
         .loket-box { background: var(--secondary); color: white; padding: 12px; border-radius: 10px; text-align: center; }
-        .loket-box-title { font-size: 14px; font-weight: bold; color: #cbd5e1; }
-        .loket-box-number { font-size: 32px; font-weight: bold; color: var(--warning); line-height: 1;}
-
+        
+        /* Tabel Tracking Dokumen */
         .doc-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         .doc-table th, .doc-table td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 16px; }
         .doc-table th { background: var(--primary); color: white; border-radius: 4px;}
         .badge { padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 14px; color: white; display: inline-block; }
-        .bg-operator { background: #64748b; }
-        .bg-verifikasi { background: #3b82f6; }
-        .bg-tte { background: #f59e0b; }
-        .bg-selesai { background: #10b981; }
+        .bg-operator { background: #64748b; } .bg-verifikasi { background: #3b82f6; } .bg-tte { background: #f59e0b; } .bg-selesai { background: #10b981; }
 
         .marquee { background: var(--primary); color: white; padding: 15px; font-size: 22px; position: fixed; bottom: 0; width: 100%; white-space: nowrap; }
         .marquee span { display: inline-block; animation: scroll 20s linear infinite; }
@@ -53,13 +44,11 @@
     </div>
     
     <div class="tv-grid">
-        <div id="media-container" class="tv-media">
-            <h2>Memuat Media...</h2>
-        </div>
+        <div id="media-container" class="tv-media"><h2>Memuat Media...</h2></div>
         
         <div class="tv-right-panel">
             <div class="tv-card">
-                <div class="tv-title">SEDANG DIPANGGIL</div>
+                <div style="font-size: 24px; font-weight: bold; color: #1e293b;">SEDANG DIPANGGIL</div>
                 <div id="tv-number" class="tv-number">A0</div>
                 <div id="tv-loket" class="tv-loket">Menunggu...</div>
             </div>
@@ -79,35 +68,28 @@
             databaseURL: "https://antrian-cibeureum-f125b-default-rtdb.asia-southeast1.firebasedatabase.app",
             projectId: "antrian-cibeureum-f125b"
         };
-        
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         
         let daftarLoket = [];
         let statusLoket = {};
-        let lastTimestamp = null; // Menyimpan waktu panggilan terakhir
+        let lastTimestamp = null; 
         let suaraDiizinkan = false;
 
-        // Fungsi menghilangkan tombol izin suara
         window.aktifkanSuara = function() {
             suaraDiizinkan = true;
             document.getElementById('btn-audio').style.display = 'none';
-            // Mainkan suara kosong singkat untuk "memancing" mesin suara browser
-            let dummy = new SpeechSynthesisUtterance('');
-            window.speechSynthesis.speak(dummy);
+            window.speechSynthesis.speak(new SpeechSynthesisUtterance(''));
         }
 
-        // Settings Listener
         onValue(ref(db, 'cibeureum_settings'), snapshot => {
             let data = snapshot.val();
             if(!data) return;
-
             document.getElementById('tv-marquee').innerText = data.marquee || "Selamat Datang";
             if(data.lokets) { daftarLoket = data.lokets; renderLoketGrid(); }
             if(data.media) renderMedia(data.media);
         });
 
-        // Queue Listener (Trigger Suara Jika Ada Panggilan Baru/Ulang)
         onValue(ref(db, 'cibeureum_queue'), snapshot => {
             let data = snapshot.val();
             if(data) {
@@ -118,39 +100,32 @@
                 statusLoket = data.status || {};
                 renderLoketGrid();
 
-                // Deteksi Panggilan: Jika ada timestamp dan waktunya beda dari yang lama = PANGGIL!
+                // Trigger Audio
                 if (data.timestamp && lastTimestamp !== null && data.timestamp !== lastTimestamp) {
-                    if(suaraDiizinkan && nomorLayar !== 'A0') {
-                        // Pisahkan Kode Huruf dan Angka (Misal: A15 -> Kode: A, Nomor: 15)
-                        let kodeHuruf = nomorLayar.charAt(0);
-                        let angkaAntrian = parseInt(nomorLayar.substring(1));
-                        mainkanDingdongLaluSuara(kodeHuruf, angkaAntrian, data.loket);
+                    if(suaraDiizinkan && nomorLayar !== 'A0' && nomorLayar !== '--') {
+                        let kodeHuruf = nomorLayar.replace(/[0-9]/g, '');
+                        let angkaAntrian = parseInt(nomorLayar.replace(/[^0-9]/g, ''));
+                        mainkanSuaraTV(kodeHuruf, angkaAntrian, data.loket);
                     }
                 }
                 lastTimestamp = data.timestamp || null;
             }
         });
 
-// === FUNGSI SUARA TTS ===
-        function mainkanDingdongLaluSuara(kode, nomor, loket) {
+        // Tumpang Tindih Audio (Lokal TV)
+        function mainkanSuaraTV(kode, nomor, loket) {
             let audio = new Audio('dingdong.mp3');
-            
             audio.play().then(() => {
-                // Ambil total durasi audio dingdong dalam satuan milidetik
                 let durasiMs = audio.duration * 1000;
-                
-                // Hitung waktu tunggu: Total durasi dikurangi 2 detik (2000 ms)
-                // Jika audio ternyata kurang dari 2 detik, bot akan langsung bicara (delay 0)
                 let waktuTunggu = (durasiMs > 2000) ? (durasiMs - 2000) : 0;
                 
                 setTimeout(() => {
-                    panggilBot(kode, nomor, loket);
+                    let teks = `Nomor Antrian, ${kode}, ${terbilang(nomor)}, Silakan menuju, ${loket}.`;
+                    let ucapan = new SpeechSynthesisUtterance(teks);
+                    ucapan.lang = 'id-ID'; ucapan.rate = 0.85;
+                    window.speechSynthesis.speak(ucapan);
                 }, waktuTunggu);
-                
-            }).catch((err) => { 
-                console.warn("Dingdong gagal diputar:", err);
-                panggilBot(kode, nomor, loket); 
-            });
+            }).catch(() => {});
         }
 
         function terbilang(n) {
@@ -161,44 +136,35 @@
             return n;
         }
 
-        function panggilBot(kode, nomor, loket) {
-            if ('speechSynthesis' in window) {
-                let teks = `Nomor Antrian, ${kode}, ${terbilang(nomor)}, Silakan menuju, ${loket}.`;
-                let ucapan = new SpeechSynthesisUtterance(teks);
-                ucapan.lang = 'id-ID'; 
-                ucapan.rate = 0.85;
-                window.speechSynthesis.speak(ucapan);
-            }
-        }
-
+        // Tabel Tracking Berkas Warga
         function listenDokumen() {
-            onValue(ref(db, 'cibeureum_dokumen'), snapshot => {
+            onValue(ref(db, 'cibeureum_tracking'), snapshot => {
                 let data = snapshot.val();
-                let container = document.getElementById('media-container');
-                let html = `<h2 style="margin:0 0 10px 0; color:#0f172a; border-bottom:2px solid #e2e8f0; padding-bottom:10px;">📋 STATUS DOKUMEN PERMOHONAN WARGA</h2><table class="doc-table"><thead><tr><th>Nama Pemohon</th><th>Layanan</th><th>Status Proses</th></tr></thead><tbody>`;
+                let c = document.getElementById('media-container');
+                let html = `<h2 style="margin:0 0 10px 0; color:#0f172a; border-bottom:2px solid #e2e8f0; padding-bottom:10px;">📋 STATUS PROSES DOKUMEN</h2><table class="doc-table"><thead><tr><th>Nomor Antrian</th><th>Status Proses</th><th>Keterangan</th></tr></thead><tbody>`;
                 
-                if(!data) { html += `<tr><td colspan="3" style="text-align:center;">Belum ada data permohonan.</td></tr>`; } 
+                if(!data) { html += `<tr><td colspan="3" style="text-align:center;">Belum ada antrian yang diproses.</td></tr>`; } 
                 else {
-                    Object.keys(data).forEach(key => {
-                        let item = data[key];
+                    let sorted = Object.keys(data).map(k => ({ nomor: k, ...data[k] })).sort((a,b) => b.timestamp - a.timestamp);
+                    sorted.forEach(item => {
+                        if (item.status === 'Selesai') return;
                         let bC = 'bg-operator';
-                        if(item.status === 'Verifikasi') bC = 'bg-verifikasi';
-                        if(item.status === 'Menunggu TTE') bC = 'bg-tte';
-                        if(item.status === 'Selesai') bC = 'bg-selesai';
-                        html += `<tr><td><b>${item.nama}</b></td><td>${item.layanan}</td><td><span class="badge ${bC}">${item.status}</span></td></tr>`;
+                        if(item.status === 'Input Operator') bC = 'bg-verifikasi';
+                        if(item.status === 'Verifikasi') bC = 'bg-tte';
+                        if(item.status === 'Menunggu TTE') bC = 'bg-selesai';
+                        html += `<tr><td><b style="font-size:20px;">${item.nomor}</b></td><td><span class="badge ${bC}">${item.status}</span></td><td style="color:#475569; font-style:italic;">${item.ket}</td></tr>`;
                     });
                 }
                 html += `</tbody></table>`;
-                container.innerHTML = html;
+                c.innerHTML = html;
             });
         }
 
         function renderLoketGrid() {
-            let grid = document.getElementById('loket-grid');
-            grid.innerHTML = '';
+            let grid = document.getElementById('loket-grid'); grid.innerHTML = '';
             daftarLoket.forEach(loket => {
                 let val = statusLoket[loket] || '--';
-                grid.innerHTML += `<div class="loket-box"><div class="loket-box-title">${loket}</div><div class="loket-box-number">${val}</div></div>`;
+                grid.innerHTML += `<div class="loket-box"><div style="font-size: 14px; font-weight: bold; color: #cbd5e1;">${loket}</div><div style="font-size: 32px; font-weight: bold; color: #f59e0b; line-height: 1;">${val}</div></div>`;
             });
         }
 

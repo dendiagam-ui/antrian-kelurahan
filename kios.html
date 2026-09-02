@@ -4,47 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kios Cetak Tiket</title>
-    
     <link rel="manifest" href="manifest-kios.json">
     <meta name="theme-color" content="#10b981">
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2620/2620572.png">
-
     <style>
         body { font-family: sans-serif; background: #e2e8f0; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px;}
         .card { background: white; padding: 40px; border-radius: 20px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
-        .btn-kiosk { background: #10b981; color: white; border: none; padding: 25px; font-size: 24px; font-weight: bold; border-radius: 12px; cursor: pointer; width: 100%; margin-bottom: 15px; transition: 0.2s; box-shadow: 0 4px 6px rgba(16,185,129,0.3);}
-        .btn-kiosk:active { transform: scale(0.95); }
-        
-        /* Checkbox Mode Otomatis */
+        .btn-kiosk { background: #10b981; color: white; border: none; padding: 25px; font-size: 24px; font-weight: bold; border-radius: 12px; cursor: pointer; width: 100%; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(16,185,129,0.3);}
         .print-mode { margin-top: 25px; padding: 15px; background: #f8fafc; border-radius: 10px; border: 1px solid #cbd5e1; display: flex; align-items: center; justify-content: center; gap: 10px;}
-        .print-mode input { width: 20px; height: 20px; accent-color: #10b981;}
-        .print-mode label { font-size: 14px; font-weight: bold; color: #475569; cursor: pointer;}
-
-        /* CSS Print Bawaan (Jika mode otomatis dimatikan) */
         @media screen { #print-area { display: none; } }
-        @media print {
-            body > *:not(#print-area) { display: none; }
-            #print-area { display: block; width: 58mm; margin: 0 auto; text-align: center; font-family: monospace; color: black; }
-            .p-num { font-size: 50px; font-weight: bold; margin: 10px 0; }
-        }
+        @media print { body > *:not(#print-area) { display: none; } #print-area { display: block; width: 58mm; margin: 0 auto; text-align: center; font-family: monospace; color: black; } .p-num { font-size: 50px; font-weight: bold; margin: 10px 0; } }
     </style>
 </head>
 <body>
-
     <div class="card">
         <h1 style="margin-top:0;">Selamat Datang</h1>
         <p style="color:gray;">Pilih Layanan Antrian Anda:</p>
-        
         <div id="buttons-container">Memuat Layanan...</div>
-
-        <!-- Opsi Print Otomatis -->
         <div class="print-mode">
             <input type="checkbox" id="auto-print" checked>
-            <label for="auto-print">Print Otomatis Tanpa Preview <br><span style="font-size:11px; color:#ef4444;">(Wajib menggunakan aplikasi RawBT)</span></label>
+            <label for="auto-print">Print Otomatis (RawBT)</label>
         </div>
     </div>
 
-    <!-- STRUK PRINT THERMAL BAWAAN (FALLBACK) -->
+    <!-- STRUK FALLBACK -->
     <div id="print-area">
         <div style="font-weight: bold; font-size:16px;" id="p-header"></div>
         <div style="font-size: 12px;" id="p-sub"></div>
@@ -67,40 +49,26 @@
             databaseURL: "https://antrian-cibeureum-f125b-default-rtdb.asia-southeast1.firebasedatabase.app",
             projectId: "antrian-cibeureum-f125b"
         };
-        
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-
         let strukSetting = {};
 
-        // Load Buttons Dinamis
         onValue(ref(db, 'cibeureum_settings'), snapshot => {
             let data = snapshot.val() || {};
             strukSetting = data.struk || { header: "KELURAHAN CIBEUREUM", sub: "", footer: "Terima Kasih" };
-
             let container = document.getElementById('buttons-container');
             container.innerHTML = '';
-            
-            let kodes = data.kodes || [{kode: "A", nama: "Pelayanan Umum"}];
-            kodes.forEach(k => {
-                container.innerHTML += `
-                    <button class="btn-kiosk" onclick="cetak('${k.kode}', '${k.nama}')">
-                        🖨️ CETAK ${k.kode}<br>
-                        <span style="font-size:16px; font-weight:normal;">${k.nama}</span>
-                    </button>
-                `;
+            (data.kodes || [{kode: "A", nama: "Umum"}]).forEach(k => {
+                container.innerHTML += `<button class="btn-kiosk" onclick="cetak('${k.kode}', '${k.nama}')">🖨️ CETAK ${k.kode}<br><span style="font-size:16px; font-weight:normal;">${k.nama}</span></button>`;
             });
         });
 
         window.cetak = async function(kode, namaLayanan) {
             let queueRef = ref(db, 'cibeureum_queue');
-            let snapshot = await get(queueRef);
-            let qData = snapshot.val() || { totals: {} };
-
+            let qData = (await get(queueRef)).val() || { totals: {} };
             if(!qData.totals) qData.totals = {};
             let currentNo = (qData.totals[kode] || 0) + 1;
             qData.totals[kode] = currentNo;
-
             await set(queueRef, qData);
 
             let isAutoPrint = document.getElementById('auto-print').checked;
@@ -108,39 +76,15 @@
             let tanggal = new Date().toLocaleString('id-ID');
 
             if (isAutoPrint) {
-                // =======================================================
-                // METODE 1: SILENT PRINT (Langsung kirim ke aplikasi RawBT)
-                // =======================================================
-                
-                // Format teks struk menggunakan Markup khusus RawBT
-                let rawbtText = 
-                    "[C]<b>" + strukSetting.header + "</b>\n" +
-                    "[C]" + strukSetting.sub + "\n" +
-                    "[C]--------------------------------\n" +
-                    "[C]NOMOR ANTRIAN\n" +
-                    "[C]<font size='big'>" + fullCode + "</font>\n" +
-                    "[C]" + namaLayanan + "\n" +
-                    "[C]" + tanggal + "\n" +
-                    "[C]--------------------------------\n" +
-                    "[C]" + strukSetting.footer + "\n\n\n"; // 3 Enter di bawah agar kertas terpotong pas
-                
-                // Konversi teks menjadi format URL yang dipahami Android
-                let encodedText = encodeURI(rawbtText);
-                
-                // Lempar perintah langsung ke aplikasi RawBT
-                window.location.href = "intent:" + encodedText + "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
-
+                let rawbtText = `[C]<b>${strukSetting.header}</b>\n[C]${strukSetting.sub}\n[C]--------------------------------\n[C]NOMOR ANTRIAN\n[C]<font size='big'>${fullCode}</font>\n[C]${namaLayanan}\n[C]${tanggal}\n[C]--------------------------------\n[C]${strukSetting.footer}\n\n\n`;
+                window.location.href = "intent:" + encodeURI(rawbtText) + "#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;";
             } else {
-                // =======================================================
-                // METODE 2: PRINT BAWAAN CHROME (Akan muncul dialog Print)
-                // =======================================================
                 document.getElementById('p-header').innerText = strukSetting.header;
                 document.getElementById('p-sub').innerText = strukSetting.sub;
                 document.getElementById('p-footer').innerText = strukSetting.footer;
                 document.getElementById('p-number').innerText = fullCode;
                 document.getElementById('p-layanan').innerText = namaLayanan;
                 document.getElementById('p-date').innerText = tanggal;
-
                 window.print();
             }
         }
