@@ -14,8 +14,6 @@
         .btn-call { background: #3b82f6; } .btn-recall { background: #f59e0b; } .btn-reset { background: #ef4444; margin-top: 20px;}
         select { width: 100%; padding: 12px; font-size: 18px; border-radius: 8px; border: 2px solid #cbd5e1; margin-bottom: 15px; font-weight: bold;}
         .info-box { background: #f1f5f9; padding: 15px; border-radius: 12px; margin: 20px 0; border: 1px solid #e2e8f0; }
-        
-        /* Tombol Update Tracking */
         .btn-track { padding: 8px 10px; border: none; border-radius: 6px; font-weight: bold; font-size:12px; cursor: pointer; color: white;}
     </style>
 </head>
@@ -38,9 +36,8 @@
         <button class="admin-btn btn-reset" onclick="resetSemua()">⚠️ Reset Semua Antrian</button>
     </div>
 
-    <!-- PANEL TRACKING DOKUMEN -->
     <div class="admin-card" style="text-align: left;">
-        <h3 style="margin-top: 0; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">📋 Update Proses Berkas</h3>
+        <h3 style="margin-top: 0; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">📋 Update Proses Berkas & Timer 45 Menit</h3>
         <div id="tracking-list" style="display: flex; flex-direction: column; gap: 15px;"></div>
     </div>
 
@@ -58,7 +55,6 @@
         const db = getDatabase(app);
         let qData = { totals: {}, calls: {}, status: {} };
 
-        // 1. DATA SETUP
         onValue(ref(db, 'cibeureum_settings'), snapshot => {
             let data = snapshot.val() || {};
             let lSelect = document.getElementById('pilihan-loket'); lSelect.innerHTML = '';
@@ -68,7 +64,6 @@
             updateInfoSelanjutnya();
         });
 
-        // 2. DATA ANTRIAN
         onValue(ref(db, 'cibeureum_queue'), snapshot => {
             let data = snapshot.val();
             if(data) {
@@ -78,30 +73,30 @@
             }
         });
 
-        // 3. DATA TRACKING (PANEL BAWAH)
         onValue(ref(db, 'cibeureum_tracking'), snapshot => {
             let data = snapshot.val();
             let container = document.getElementById('tracking-list');
             container.innerHTML = '';
 
             if(data) {
-                // Tampilkan dari yang terbaru
-                let sortedData = Object.keys(data).map(key => ({ nomor: key, ...data[key] })).sort((a, b) => b.timestamp - a.timestamp);
+                let sorted = Object.keys(data).map(k => ({ nomor: k, ...data[k] })).sort((a, b) => b.timestamp - a.timestamp);
 
-                sortedData.forEach(item => {
-                    if (item.status === 'Selesai') return; // Sembunyikan yang sudah selesai
+                sorted.forEach(item => {
+                    if (item.status === 'Selesai') return;
+                    
                     container.innerHTML += `
                         <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #cbd5e1;">
-                            <strong style="font-size: 20px;">${item.nomor}</strong> - <span style="color:#3b82f6; font-weight:bold;">${item.status}</span>
-                            <div style="margin-top: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
-                                <button onclick="updateStatus('${item.nomor}', 'Input Operator')" class="btn-track" style="background:#3b82f6;">Input Operator</button>
-                                <button onclick="updateStatus('${item.nomor}', 'Verifikasi')" class="btn-track" style="background:#f59e0b;">Verifikasi</button>
-                                <button onclick="updateStatus('${item.nomor}', 'Menunggu TTE')" class="btn-track" style="background:#6366f1;">Menunggu TTE</button>
-                                <button onclick="updateStatus('${item.nomor}', 'Selesai')" class="btn-track" style="background:#10b981;">✅ Selesai</button>
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <strong style="font-size: 20px;">${item.nomor}</strong>
+                                <span style="background:#e0f2fe; color:#0369a1; padding:4px 8px; border-radius:6px; font-weight:bold; font-size:14px;">Estimasi: ${item.estimasi || '-'}</span>
                             </div>
-                            <div style="margin-top: 10px; display: flex; gap: 5px;">
-                                <input type="text" id="ket-${item.nomor}" value="${item.ket}" placeholder="Ket tambahan..." style="width: 70%; padding: 8px; border-radius:4px; border:1px solid #ccc;">
-                                <button onclick="updateKet('${item.nomor}')" style="width: 30%; background:#0f172a; color:white; border:none; cursor:pointer; border-radius:4px;">Simpan Ket</button>
+                            <p style="margin:5px 0 10px 0; color:#3b82f6; font-weight:bold;">Status: ${item.status}</p>
+                            
+                            <div style="margin-top: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
+                                <button onclick="updateStatus('${item.nomor}', 'Input Operator', true)" class="btn-track" style="background:#3b82f6;">Input Operator (Mulai Timer)</button>
+                                <button onclick="updateStatus('${item.nomor}', 'Verifikasi', false)" class="btn-track" style="background:#f59e0b;">Verifikasi</button>
+                                <button onclick="updateStatus('${item.nomor}', 'Menunggu TTE', false)" class="btn-track" style="background:#6366f1;">Menunggu TTE</button>
+                                <button onclick="updateStatus('${item.nomor}', 'Selesai', false)" class="btn-track" style="background:#10b981;">✅ Selesai</button>
                             </div>
                         </div>
                     `;
@@ -109,10 +104,20 @@
             } else { container.innerHTML = '<p style="color:gray;">Belum ada dokumen yang diproses.</p>'; }
         });
 
-        window.updateStatus = function(nomor, statusBaru) { set(ref(db, `cibeureum_tracking/${nomor}/status`), statusBaru); }
-        window.updateKet = function(nomor) {
-            let ketBaru = document.getElementById(`ket-${nomor}`).value;
-            set(ref(db, `cibeureum_tracking/${nomor}/ket`), ketBaru);
+        // FUNGSI UPDATE STATUS & TIMER 45 MENIT OTOMATIS
+        window.updateStatus = function(nomor, statusBaru, isMulaiTimer) {
+            let updateData = { status: statusBaru };
+            
+            // Jika admin klik "Input Operator", set target waktu selesai 45 menit dari sekarang
+            if (isMulaiTimer) {
+                let targetTime = Date.now() + (45 * 60 * 1000); // 45 Menit dlm milidetik
+                updateData.targetTime = targetTime;
+            }
+
+            // Update ke node spesifik
+            for (let key in updateData) {
+                set(ref(db, `cibeureum_tracking/${nomor}/${key}`), updateData[key]);
+            }
         }
 
         window.updateInfoSelanjutnya = function() {
@@ -146,12 +151,10 @@
                 qData.status[loket] = fullCode;
                 qData.timestamp = Date.now();
 
-                // 1. Simpan Antrian
                 set(ref(db, 'cibeureum_queue'), qData);
-                // 2. OTOMATIS TAMBAHKAN KE TABEL TRACKING BERKAS
-                set(ref(db, `cibeureum_tracking/${fullCode}`), { status: "Pemeriksaan Berkas", ket: "-", timestamp: Date.now() });
+                // Status awal saat dipanggil
+                set(ref(db, `cibeureum_tracking/${fullCode}`), { status: "Pemeriksaan Berkas", estimasi: "-", targetTime: null, timestamp: Date.now() });
                 
-                // 3. Bunyikan Suara
                 mainkanSuara(kode, nextNo, loket);
             } else { alert("Antrian kosong!"); }
         }
@@ -166,9 +169,9 @@
         }
 
         window.resetSemua = function() {
-            if(confirm("Yakin mereset sistem? Semua nomor & tracking akan dihapus.")) {
+            if(confirm("Yakin mereset sistem?")) {
                 set(ref(db, 'cibeureum_queue'), { totals: {}, calls: {}, status: {}, displayCode: "A0", timestamp: Date.now() });
-                set(ref(db, 'cibeureum_tracking'), null); // Bersihkan tabel tracking
+                set(ref(db, 'cibeureum_tracking'), null);
             }
         }
 
@@ -179,8 +182,7 @@
             let audio = new Audio('dingdong.mp3');
             audio.play().then(() => {
                 let durasiMs = audio.duration * 1000;
-                let waktuTunggu = (durasiMs > 2000) ? (durasiMs - 2000) : 0; // Delay overlap 2 detik
-                
+                let waktuTunggu = (durasiMs > 2000) ? (durasiMs - 2000) : 0;
                 setTimeout(() => {
                     let teks = `Nomor Antrian, ${kode}, ${terbilang(nomor)}, Silakan menuju, ${loket}.`;
                     let ucapan = new SpeechSynthesisUtterance(teks);

@@ -24,7 +24,7 @@
         .loket-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
         .loket-box { background: var(--secondary); color: white; padding: 12px; border-radius: 10px; text-align: center; }
         
-        /* Tabel Tracking Dokumen (DIPERBESAR) */
+        /* Tabel Tracking Dokumen */
         .doc-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         .doc-table th, .doc-table td { padding: 18px 12px; text-align: left; border-bottom: 2px solid #e2e8f0; }
         .doc-table th { background: var(--primary); color: white; border-radius: 6px; font-size: 22px; padding: 15px;}
@@ -75,6 +75,7 @@
         let statusLoket = {};
         let lastTimestamp = null; 
         let suaraDiizinkan = false;
+        let globalTrackingData = {}; // Menyimpan data tracking untuk timer real-time
 
         window.aktifkanSuara = function() {
             suaraDiizinkan = true;
@@ -100,7 +101,6 @@
                 statusLoket = data.status || {};
                 renderLoketGrid();
 
-                // Trigger Audio
                 if (data.timestamp && lastTimestamp !== null && data.timestamp !== lastTimestamp) {
                     if(suaraDiizinkan && nomorLayar !== 'A0' && nomorLayar !== '--') {
                         let kodeHuruf = nomorLayar.replace(/[0-9]/g, '');
@@ -117,7 +117,6 @@
             audio.play().then(() => {
                 let durasiMs = audio.duration * 1000;
                 let waktuTunggu = (durasiMs > 2000) ? (durasiMs - 2000) : 0;
-                
                 setTimeout(() => {
                     let teks = `Nomor Antrian, ${kode}, ${terbilang(nomor)}, Silakan menuju, ${loket}.`;
                     let ucapan = new SpeechSynthesisUtterance(teks);
@@ -135,46 +134,74 @@
             return n;
         }
 
-        // Tabel Tracking Berkas Warga (Font Diperbesar)
+        // --- TABEL TRACKING DENGAN TIMER HITUNG MUNDUR REAL-TIME ---
         function listenDokumen() {
             onValue(ref(db, 'cibeureum_tracking'), snapshot => {
-                let data = snapshot.val();
-                let c = document.getElementById('media-container');
-                let html = `
-                    <h2 style="margin:0 0 15px 0; color:#0f172a; border-bottom:3px solid #e2e8f0; padding-bottom:15px; font-size:32px;">📋 STATUS PROSES DOKUMEN</h2>
-                    <table class="doc-table">
-                        <thead>
-                            <tr>
-                                <th>Nomor Antrian</th>
-                                <th>Status Proses</th>
-                                <th>Keterangan</th>
-                            </tr>
-                        </thead>
-                        <tbody>`;
-                
-                if(!data) { 
-                    html += `<tr><td colspan="3" style="text-align:center; font-size:24px; padding:30px;">Belum ada antrian yang diproses.</td></tr>`; 
-                } 
-                else {
-                    let sorted = Object.keys(data).map(k => ({ nomor: k, ...data[k] })).sort((a,b) => b.timestamp - a.timestamp);
-                    sorted.forEach(item => {
-                        if (item.status === 'Selesai') return;
-                        let bC = 'bg-operator';
-                        if(item.status === 'Input Operator') bC = 'bg-verifikasi';
-                        if(item.status === 'Verifikasi') bC = 'bg-tte';
-                        if(item.status === 'Menunggu TTE') bC = 'bg-selesai';
-                        
-                        html += `
-                            <tr>
-                                <td><b style="font-size:42px; color:#0f172a;">${item.nomor}</b></td>
-                                <td><span class="badge ${bC}">${item.status}</span></td>
-                                <td style="color:#475569; font-style:italic; font-size:22px;">${item.ket}</td>
-                            </tr>`;
-                    });
-                }
-                html += `</tbody></table>`;
-                c.innerHTML = html;
+                globalTrackingData = snapshot.val() || {};
+                renderTabelDokumen();
             });
+        }
+
+        // Fungsi Interval per 1 Detik untuk memperbarui tampilan Timer Hitungan Mundur di TV
+        setInterval(() => {
+            if(document.getElementById('doc-table-body')) {
+                renderTabelDokumen();
+            }
+        }, 1000);
+
+        function renderTabelDokumen() {
+            let c = document.getElementById('media-container');
+            if(!c) return;
+
+            let html = `
+                <h2 style="margin:0 0 15px 0; color:#0f172a; border-bottom:3px solid #e2e8f0; padding-bottom:15px; font-size:32px;">📋 STATUS PROSES DOKUMEN</h2>
+                <table class="doc-table">
+                    <thead>
+                        <tr>
+                            <th>Nomor Antrian</th>
+                            <th>Status Proses</th>
+                            <th>Estimasi Selesai</th>
+                        </tr>
+                    </thead>
+                    <tbody id="doc-table-body">`;
+            
+            let data = globalTrackingData;
+            if(!data || Object.keys(data).length === 0) { 
+                html += `<tr><td colspan="3" style="text-align:center; font-size:24px; padding:30px;">Belum ada antrian yang diproses.</td></tr>`; 
+            } 
+            else {
+                let sorted = Object.keys(data).map(k => ({ nomor: k, ...data[k] })).sort((a,b) => b.timestamp - a.timestamp);
+                sorted.forEach(item => {
+                    if (item.status === 'Selesai') return;
+                    let bC = 'bg-operator';
+                    if(item.status === 'Input Operator') bC = 'bg-verifikasi';
+                    if(item.status === 'Verifikasi') bC = 'bg-tte';
+                    if(item.status === 'Menunggu TTE') bC = 'bg-selesai';
+                    
+                    // Hitung mundur waktu jika targetTime tersedia
+                    let textEstimasi = "-";
+                    if (item.targetTime) {
+                        let selisih = item.targetTime - Date.now();
+                        if (selisih > 0) {
+                            let totalDetik = Math.floor(selisih / 1000);
+                            let menit = Math.floor(totalDetik / 60);
+                            let detik = totalDetik % 60;
+                            textEstimasi = `${menit.toString().padStart(2, '0')}:${detik.toString().padStart(2, '0')} menit lagi`;
+                        } else {
+                            textEstimasi = "Waktu Habis / Segera Selesai";
+                        }
+                    }
+
+                    html += `
+                        <tr>
+                            <td><b style="font-size:42px; color:#0f172a;">${item.nomor}</b></td>
+                            <td><span class="badge ${bC}">${item.status}</span></td>
+                            <td style="color:#d97706; font-weight:bold; font-size:24px;">${textEstimasi}</td>
+                        </tr>`;
+                });
+            }
+            html += `</tbody></table>`;
+            c.innerHTML = html;
         }
 
         function renderLoketGrid() {
