@@ -18,7 +18,6 @@
     </style>
 </head>
 <body>
-
     <div class="admin-card">
         <h2>Panel Pemanggil Loket</h2>
         <select id="pilihan-loket"></select>
@@ -66,24 +65,16 @@
 
         onValue(ref(db, 'cibeureum_queue'), snapshot => {
             let data = snapshot.val();
-            if(data) {
-                qData = data;
-                document.getElementById('admin-current').innerText = data.displayCode || '--';
-                updateInfoSelanjutnya();
-            }
+            if(data) { qData = data; document.getElementById('admin-current').innerText = data.displayCode || '--'; updateInfoSelanjutnya(); }
         });
 
         onValue(ref(db, 'cibeureum_tracking'), snapshot => {
             let data = snapshot.val();
-            let container = document.getElementById('tracking-list');
-            container.innerHTML = '';
-
+            let container = document.getElementById('tracking-list'); container.innerHTML = '';
             if(data) {
                 let sorted = Object.keys(data).map(k => ({ nomor: k, ...data[k] })).sort((a, b) => b.timestamp - a.timestamp);
-
                 sorted.forEach(item => {
                     if (item.status === 'Selesai') return;
-                    
                     container.innerHTML += `
                         <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #cbd5e1;">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -91,33 +82,21 @@
                                 <span style="background:#e0f2fe; color:#0369a1; padding:4px 8px; border-radius:6px; font-weight:bold; font-size:14px;">Estimasi: ${item.estimasi || '-'}</span>
                             </div>
                             <p style="margin:5px 0 10px 0; color:#3b82f6; font-weight:bold;">Status: ${item.status}</p>
-                            
                             <div style="margin-top: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
                                 <button onclick="updateStatus('${item.nomor}', 'Input Operator', true)" class="btn-track" style="background:#3b82f6;">Input Operator (Mulai Timer)</button>
                                 <button onclick="updateStatus('${item.nomor}', 'Verifikasi', false)" class="btn-track" style="background:#f59e0b;">Verifikasi</button>
                                 <button onclick="updateStatus('${item.nomor}', 'Menunggu TTE', false)" class="btn-track" style="background:#6366f1;">Menunggu TTE</button>
                                 <button onclick="updateStatus('${item.nomor}', 'Selesai', false)" class="btn-track" style="background:#10b981;">✅ Selesai</button>
                             </div>
-                        </div>
-                    `;
+                        </div>`;
                 });
             } else { container.innerHTML = '<p style="color:gray;">Belum ada dokumen yang diproses.</p>'; }
         });
 
-        // FUNGSI UPDATE STATUS & TIMER 45 MENIT OTOMATIS
         window.updateStatus = function(nomor, statusBaru, isMulaiTimer) {
             let updateData = { status: statusBaru };
-            
-            // Jika admin klik "Input Operator", set target waktu selesai 45 menit dari sekarang
-            if (isMulaiTimer) {
-                let targetTime = Date.now() + (45 * 60 * 1000); // 45 Menit dlm milidetik
-                updateData.targetTime = targetTime;
-            }
-
-            // Update ke node spesifik
-            for (let key in updateData) {
-                set(ref(db, `cibeureum_tracking/${nomor}/${key}`), updateData[key]);
-            }
+            if (isMulaiTimer) updateData.targetTime = Date.now() + (45 * 60 * 1000); // 45 Menit
+            for (let key in updateData) set(ref(db, `cibeureum_tracking/${nomor}/${key}`), updateData[key]);
         }
 
         window.updateInfoSelanjutnya = function() {
@@ -126,35 +105,23 @@
             let currentCall = (qData.calls && qData.calls[kode]) ? qData.calls[kode] : 0;
             let totalPrinted = (qData.totals && qData.totals[kode]) ? qData.totals[kode] : 0;
             let textNext = document.getElementById('admin-next');
-            if (currentCall + 1 <= totalPrinted) {
-                textNext.innerText = kode + (currentCall + 1);
-                textNext.style.color = "#10b981"; 
-            } else {
-                textNext.innerText = "Belum Ada Pendaftar";
-                textNext.style.color = "#ef4444"; 
-            }
+            if (currentCall + 1 <= totalPrinted) { textNext.innerText = kode + (currentCall + 1); textNext.style.color = "#10b981"; } 
+            else { textNext.innerText = "Belum Ada Pendaftar"; textNext.style.color = "#ef4444"; }
         }
 
         window.panggilSelanjutnya = function() {
-            let kode = document.getElementById('pilihan-kode').value;
-            let loket = document.getElementById('pilihan-loket').value;
+            let kode = document.getElementById('pilihan-kode').value, loket = document.getElementById('pilihan-loket').value;
             if(!qData.calls) qData.calls = {};
             let nextNo = (qData.calls[kode] || 0) + 1;
             let maxNo = (qData.totals && qData.totals[kode]) ? qData.totals[kode] : 0;
 
             if(nextNo <= maxNo) {
                 let fullCode = kode + nextNo;
-                qData.calls[kode] = nextNo;
-                qData.displayCode = fullCode;
-                qData.loket = loket; qData.call = nextNo;
+                qData.calls[kode] = nextNo; qData.displayCode = fullCode; qData.loket = loket; qData.call = nextNo;
                 if(!qData.status) qData.status = {};
-                qData.status[loket] = fullCode;
-                qData.timestamp = Date.now();
-
+                qData.status[loket] = fullCode; qData.timestamp = Date.now();
                 set(ref(db, 'cibeureum_queue'), qData);
-                // Status awal saat dipanggil
                 set(ref(db, `cibeureum_tracking/${fullCode}`), { status: "Pemeriksaan Berkas", estimasi: "-", targetTime: null, timestamp: Date.now() });
-                
                 mainkanSuara(kode, nextNo, loket);
             } else { alert("Antrian kosong!"); }
         }
@@ -178,14 +145,11 @@
         function mainkanSuara(kode, nomor, loket) {
             let b1 = document.getElementById('btnCall'), b2 = document.getElementById('btnRecall');
             b1.disabled = true; b2.disabled = true;
-
             let audio = new Audio('dingdong.mp3');
             audio.play().then(() => {
-                let durasiMs = audio.duration * 1000;
-                let waktuTunggu = (durasiMs > 2000) ? (durasiMs - 2000) : 0;
+                let waktuTunggu = (audio.duration * 1000 > 2000) ? (audio.duration * 1000 - 2000) : 0;
                 setTimeout(() => {
-                    let teks = `Nomor Antrian, ${kode}, ${terbilang(nomor)}, Silakan menuju, ${loket}.`;
-                    let ucapan = new SpeechSynthesisUtterance(teks);
+                    let ucapan = new SpeechSynthesisUtterance(`Nomor Antrian, ${kode}, ${terbilang(nomor)}, Silakan menuju, ${loket}.`);
                     ucapan.lang = 'id-ID'; ucapan.rate = 0.85;
                     ucapan.onend = () => { b1.disabled = false; b2.disabled = false; };
                     window.speechSynthesis.speak(ucapan);
@@ -195,10 +159,8 @@
 
         function terbilang(n) {
             let b = ["", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", "delapan", "sembilan", "sepuluh", "sebelas"];
-            if (n < 12) return b[n];
-            if (n < 20) return b[n - 10] + " belas";
-            if (n < 100) return b[Math.floor(n / 10)] + " puluh" + (n % 10 > 0 ? " " + b[n % 10] : "");
-            return n;
+            if (n < 12) return b[n]; if (n < 20) return b[n - 10] + " belas";
+            if (n < 100) return b[Math.floor(n / 10)] + " puluh" + (n % 10 > 0 ? " " + b[n % 10] : ""); return n;
         }
     </script>
 </body>

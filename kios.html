@@ -10,6 +10,7 @@
         body { font-family: sans-serif; background: #e2e8f0; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px;}
         .card { background: white; padding: 40px; border-radius: 20px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
         .btn-kiosk { background: #10b981; color: white; border: none; padding: 25px; font-size: 24px; font-weight: bold; border-radius: 12px; cursor: pointer; width: 100%; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(16,185,129,0.3);}
+        .btn-kiosk:active { transform: scale(0.95); }
         .print-mode { margin-top: 25px; padding: 15px; background: #f8fafc; border-radius: 10px; border: 1px solid #cbd5e1; display: flex; align-items: center; justify-content: center; gap: 10px;}
         @media screen { #print-area { display: none; } }
         @media print { body > *:not(#print-area) { display: none; } #print-area { display: block; width: 58mm; margin: 0 auto; text-align: center; font-family: monospace; color: black; } .p-num { font-size: 50px; font-weight: bold; margin: 10px 0; } }
@@ -22,11 +23,11 @@
         <div id="buttons-container">Memuat Layanan...</div>
         <div class="print-mode">
             <input type="checkbox" id="auto-print" checked>
-            <label for="auto-print">Print Otomatis (RawBT)</label>
+            <label for="auto-print">Print Otomatis (Wajib Install RawBT)</label>
         </div>
     </div>
 
-    <!-- STRUK FALLBACK -->
+    <!-- STRUK FALLBACK PRINT CHROME -->
     <div id="print-area">
         <div style="font-weight: bold; font-size:16px;" id="p-header"></div>
         <div style="font-size: 12px;" id="p-sub"></div>

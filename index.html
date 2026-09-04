@@ -14,7 +14,7 @@
 
         .tv-grid { display: grid; grid-template-columns: 2.2fr 1.2fr; gap: 20px; padding: 20px; height: 80vh; }
         .tv-media { background: white; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); padding: 20px;}
-        .tv-media img, .tv-media iframe { width: 100%; height: 100%; object-fit: cover; border: none; }
+        .tv-media img, .tv-media iframe { width: 100%; height: 100%; object-fit: contain; border: none; }
         
         .tv-right-panel { display: flex; flex-direction: column; gap: 15px; }
         .tv-card { background: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border: 5px solid var(--accent); flex: 1; display: flex; flex-direction: column; justify-content: center;}
@@ -24,7 +24,6 @@
         .loket-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
         .loket-box { background: var(--secondary); color: white; padding: 12px; border-radius: 10px; text-align: center; }
         
-        /* Tabel Tracking Dokumen */
         .doc-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         .doc-table th, .doc-table td { padding: 18px 12px; text-align: left; border-bottom: 2px solid #e2e8f0; }
         .doc-table th { background: var(--primary); color: white; border-radius: 6px; font-size: 22px; padding: 15px;}
@@ -37,7 +36,6 @@
     </style>
 </head>
 <body>
-
     <div class="header">
         🏢 KELURAHAN CIBEUREUM
         <button id="btn-audio" class="btn-audio" onclick="aktifkanSuara()">🔊 Klik 1x Untuk Aktifkan Suara</button>
@@ -45,7 +43,6 @@
     
     <div class="tv-grid">
         <div id="media-container" class="tv-media"><h2>Memuat Media...</h2></div>
-        
         <div class="tv-right-panel">
             <div class="tv-card">
                 <div style="font-size: 24px; font-weight: bold; color: #1e293b;">SEDANG DIPANGGIL</div>
@@ -71,15 +68,11 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         
-        let daftarLoket = [];
-        let statusLoket = {};
-        let lastTimestamp = null; 
-        let suaraDiizinkan = false;
-        let globalTrackingData = {}; // Menyimpan data tracking untuk timer real-time
+        let daftarLoket = [], statusLoket = {}, lastTimestamp = null, suaraDiizinkan = false, globalTrackingData = {};
+        let slideInterval; 
 
         window.aktifkanSuara = function() {
-            suaraDiizinkan = true;
-            document.getElementById('btn-audio').style.display = 'none';
+            suaraDiizinkan = true; document.getElementById('btn-audio').style.display = 'none';
             window.speechSynthesis.speak(new SpeechSynthesisUtterance(''));
         }
 
@@ -97,10 +90,8 @@
                 let nomorLayar = data.displayCode || 'A0';
                 document.getElementById('tv-number').innerText = nomorLayar;
                 document.getElementById('tv-loket').innerText = data.call > 0 ? data.loket : 'Menunggu...';
+                statusLoket = data.status || {}; renderLoketGrid();
                 
-                statusLoket = data.status || {};
-                renderLoketGrid();
-
                 if (data.timestamp && lastTimestamp !== null && data.timestamp !== lastTimestamp) {
                     if(suaraDiizinkan && nomorLayar !== 'A0' && nomorLayar !== '--') {
                         let kodeHuruf = nomorLayar.replace(/[0-9]/g, '');
@@ -115,11 +106,9 @@
         function mainkanSuaraTV(kode, nomor, loket) {
             let audio = new Audio('dingdong.mp3');
             audio.play().then(() => {
-                let durasiMs = audio.duration * 1000;
-                let waktuTunggu = (durasiMs > 2000) ? (durasiMs - 2000) : 0;
+                let waktuTunggu = (audio.duration * 1000 > 2000) ? (audio.duration * 1000 - 2000) : 0;
                 setTimeout(() => {
-                    let teks = `Nomor Antrian, ${kode}, ${terbilang(nomor)}, Silakan menuju, ${loket}.`;
-                    let ucapan = new SpeechSynthesisUtterance(teks);
+                    let ucapan = new SpeechSynthesisUtterance(`Nomor Antrian, ${kode}, ${terbilang(nomor)}, Silakan menuju, ${loket}.`);
                     ucapan.lang = 'id-ID'; ucapan.rate = 0.85;
                     window.speechSynthesis.speak(ucapan);
                 }, waktuTunggu);
@@ -128,47 +117,21 @@
 
         function terbilang(n) {
             let b = ["", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", "delapan", "sembilan", "sepuluh", "sebelas"];
-            if (n < 12) return b[n];
-            if (n < 20) return b[n - 10] + " belas";
-            if (n < 100) return b[Math.floor(n / 10)] + " puluh" + (n % 10 > 0 ? " " + b[n % 10] : "");
-            return n;
+            if (n < 12) return b[n]; if (n < 20) return b[n - 10] + " belas";
+            if (n < 100) return b[Math.floor(n / 10)] + " puluh" + (n % 10 > 0 ? " " + b[n % 10] : ""); return n;
         }
 
-        // --- TABEL TRACKING DENGAN TIMER HITUNG MUNDUR REAL-TIME ---
         function listenDokumen() {
-            onValue(ref(db, 'cibeureum_tracking'), snapshot => {
-                globalTrackingData = snapshot.val() || {};
-                renderTabelDokumen();
-            });
+            onValue(ref(db, 'cibeureum_tracking'), snapshot => { globalTrackingData = snapshot.val() || {}; renderTabelDokumen(); });
         }
-
-        // Fungsi Interval per 1 Detik untuk memperbarui tampilan Timer Hitungan Mundur di TV
-        setInterval(() => {
-            if(document.getElementById('doc-table-body')) {
-                renderTabelDokumen();
-            }
-        }, 1000);
+        
+        setInterval(() => { if(document.getElementById('doc-table-body')) renderTabelDokumen(); }, 1000);
 
         function renderTabelDokumen() {
-            let c = document.getElementById('media-container');
-            if(!c) return;
-
-            let html = `
-                <h2 style="margin:0 0 15px 0; color:#0f172a; border-bottom:3px solid #e2e8f0; padding-bottom:15px; font-size:32px;">📋 STATUS PROSES DOKUMEN</h2>
-                <table class="doc-table">
-                    <thead>
-                        <tr>
-                            <th>Nomor Antrian</th>
-                            <th>Status Proses</th>
-                            <th>Estimasi Selesai</th>
-                        </tr>
-                    </thead>
-                    <tbody id="doc-table-body">`;
-            
+            let c = document.getElementById('media-container'); if(!c) return;
+            let html = `<h2 style="margin:0 0 15px 0; color:#0f172a; border-bottom:3px solid #e2e8f0; padding-bottom:15px; font-size:32px;">📋 STATUS PROSES DOKUMEN</h2><table class="doc-table"><thead><tr><th>Nomor Antrian</th><th>Status Proses</th><th>Estimasi Selesai</th></tr></thead><tbody id="doc-table-body">`;
             let data = globalTrackingData;
-            if(!data || Object.keys(data).length === 0) { 
-                html += `<tr><td colspan="3" style="text-align:center; font-size:24px; padding:30px;">Belum ada antrian yang diproses.</td></tr>`; 
-            } 
+            if(!data || Object.keys(data).length === 0) { html += `<tr><td colspan="3" style="text-align:center; font-size:24px; padding:30px;">Belum ada antrian yang diproses.</td></tr>`; } 
             else {
                 let sorted = Object.keys(data).map(k => ({ nomor: k, ...data[k] })).sort((a,b) => b.timestamp - a.timestamp);
                 sorted.forEach(item => {
@@ -178,26 +141,15 @@
                     if(item.status === 'Verifikasi') bC = 'bg-tte';
                     if(item.status === 'Menunggu TTE') bC = 'bg-selesai';
                     
-                    // Hitung mundur waktu jika targetTime tersedia
                     let textEstimasi = "-";
                     if (item.targetTime) {
                         let selisih = item.targetTime - Date.now();
                         if (selisih > 0) {
-                            let totalDetik = Math.floor(selisih / 1000);
-                            let menit = Math.floor(totalDetik / 60);
-                            let detik = totalDetik % 60;
+                            let totalDetik = Math.floor(selisih / 1000), menit = Math.floor(totalDetik / 60), detik = totalDetik % 60;
                             textEstimasi = `${menit.toString().padStart(2, '0')}:${detik.toString().padStart(2, '0')} menit lagi`;
-                        } else {
-                            textEstimasi = "Waktu Habis / Segera Selesai";
-                        }
+                        } else { textEstimasi = "Waktu Habis / Segera Selesai"; }
                     }
-
-                    html += `
-                        <tr>
-                            <td><b style="font-size:42px; color:#0f172a;">${item.nomor}</b></td>
-                            <td><span class="badge ${bC}">${item.status}</span></td>
-                            <td style="color:#d97706; font-weight:bold; font-size:24px;">${textEstimasi}</td>
-                        </tr>`;
+                    html += `<tr><td><b style="font-size:42px; color:#0f172a;">${item.nomor}</b></td><td><span class="badge ${bC}">${item.status}</span></td><td style="color:#d97706; font-weight:bold; font-size:24px;">${textEstimasi}</td></tr>`;
                 });
             }
             html += `</tbody></table>`;
@@ -214,10 +166,24 @@
 
         function renderMedia(mediaData) {
             let c = document.getElementById('media-container');
+            clearInterval(slideInterval);
+            
             if(mediaData.type === 'status_dokumen') listenDokumen();
             else if (mediaData.type === 'youtube') c.innerHTML = `<iframe src="https://www.youtube.com/embed/${mediaData.content}?autoplay=1&mute=1&loop=1&playlist=${mediaData.content}"></iframe>`;
             else if (mediaData.type === 'gslides') c.innerHTML = `<iframe src="${mediaData.content}"></iframe>`;
-            else if (mediaData.type === 'images') c.innerHTML = `<img src="${mediaData.content.split(',')[0]}">`;
+            else if (mediaData.type === 'images') {
+                let urls = mediaData.content.split(',').map(url => url.trim()).filter(url => url !== "");
+                if (urls.length === 0) { c.innerHTML = `<h2 style="color:gray;">Link gambar kosong</h2>`; return; }
+                c.innerHTML = `<img id="slider-img" src="${urls[0]}" onerror="this.onerror=null; this.src='https://via.placeholder.com/800x600?text=Link+Gambar+Gagal+Dimuat';">`;
+                if (urls.length > 1) {
+                    let currentSlide = 0;
+                    slideInterval = setInterval(() => {
+                        currentSlide = (currentSlide + 1) % urls.length;
+                        let imgEl = document.getElementById('slider-img');
+                        if (imgEl) imgEl.src = urls[currentSlide];
+                    }, 5000);
+                }
+            }
         }
     </script>
 </body>
