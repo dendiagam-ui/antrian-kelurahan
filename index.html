@@ -5,32 +5,86 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Layar TV Antrian</title>
     <style>
-        :root { --primary: #0f172a; --secondary: #1e293b; --accent: #3b82f6; --danger: #ef4444; --warning: #f59e0b;}
-        body { margin: 0; padding: 0; background-color: #e2e8f0; overflow: hidden; font-family: sans-serif; }
-        .header { background: var(--primary); color: white; padding: 20px; text-align: center; font-size: 26px; font-weight: bold; position: relative;}
+        /* === PALET WARNA SESUAI GAMBAR 1001043227.jpg === */
+        :root { 
+            --primary: #032b5e;   /* Biru Dongker / Navy Pekat (Header, Footer, Border) */
+            --secondary: #0a4082; /* Biru Dongker Terang (Kotak Loket) */
+            --accent: #facc15;    /* Kuning Emas Cerah (Garis Bawah, Teks Aksen) */
+            --danger: #dc2626;    /* Merah untuk Angka Panggilan Utama */
+            --warning: #facc15;   /* Kuning Emas untuk Angka di Kotak Loket */
+            --bg-color: #f0f4f8;  /* Abu-abu kebiruan sangat terang untuk Background */
+            --text-dark: #0f172a; /* Warna teks gelap */
+        }
         
-        .btn-audio { position: absolute; right: 20px; top: 15px; background: var(--danger); color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; animation: pulse 2s infinite; }
+        body { margin: 0; padding: 0; background-color: var(--bg-color); overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        
+        /* Header Biru Dongker dengan Garis Kuning Emas */
+        .header { 
+            background: var(--primary); 
+            color: white; 
+            padding: 22px; 
+            text-align: center; 
+            font-size: 32px; 
+            font-weight: 900; 
+            position: relative;
+            border-bottom: 5px solid var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .btn-audio { position: absolute; right: 20px; top: 18px; background: var(--danger); color: white; border: none; padding: 12px 18px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; animation: pulse 2s infinite; box-shadow: 0 4px 6px rgba(220,38,38,0.3);}
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
-        .tv-grid { display: grid; grid-template-columns: 2.2fr 1.2fr; gap: 20px; padding: 20px; height: 80vh; }
-        .tv-media { background: white; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); padding: 20px;}
+        .tv-grid { display: grid; grid-template-columns: 2.2fr 1.2fr; gap: 25px; padding: 25px; height: 80vh; }
+        
+        /* Area Media (Kiri) */
+        .tv-media { background: white; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 25px; border: 2px solid #e2e8f0;}
         .tv-media img, .tv-media iframe { width: 100%; height: 100%; object-fit: contain; border: none; }
         
-        .tv-right-panel { display: flex; flex-direction: column; gap: 15px; }
-        .tv-card { background: white; padding: 20px; border-radius: 12px; text-align: center; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border: 5px solid var(--accent); flex: 1; display: flex; flex-direction: column; justify-content: center;}
-        .tv-number { font-size: 110px; font-weight: 900; color: var(--danger); line-height: 1; margin: 0;}
-        .tv-loket { font-size: 32px; font-weight: bold; background: var(--primary); color: white; padding: 10px; border-radius: 12px; margin-top: 15px;}
+        .tv-right-panel { display: flex; flex-direction: column; gap: 20px; }
         
-        .loket-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
-        .loket-box { background: var(--secondary); color: white; padding: 12px; border-radius: 10px; text-align: center; }
+        /* Kartu Panggilan Utama (Kanan Atas) */
+        .tv-card { 
+            background: white; 
+            padding: 25px; 
+            border-radius: 16px; 
+            text-align: center; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05); 
+            border: 6px solid var(--primary); /* Border Biru Dongker Tebal */
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center;
+        }
+        .tv-number { font-size: 120px; font-weight: 900; color: var(--danger); line-height: 1; margin: 5px 0;}
+        .tv-loket { font-size: 36px; font-weight: bold; background: var(--primary); color: white; padding: 12px; border-radius: 12px; margin-top: 15px; letter-spacing: 1px;}
         
+        /* Grid Loket (Kanan Bawah) */
+        .loket-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 15px; }
+        .loket-box { background: var(--secondary); color: white; padding: 15px; border-radius: 12px; text-align: center; border: 2px solid var(--primary); box-shadow: 0 4px 6px rgba(0,0,0,0.1);}
+        
+        /* Tabel Tracking Dokumen */
         .doc-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        .doc-table th, .doc-table td { padding: 18px 12px; text-align: left; border-bottom: 2px solid #e2e8f0; }
-        .doc-table th { background: var(--primary); color: white; border-radius: 6px; font-size: 22px; padding: 15px;}
-        .badge { padding: 10px 18px; border-radius: 8px; font-weight: bold; font-size: 22px; color: white; display: inline-block; }
+        .doc-table th, .doc-table td { padding: 18px 15px; text-align: left; border-bottom: 2px solid #e2e8f0; }
+        .doc-table th { background: var(--primary); color: white; border-radius: 8px; font-size: 22px; padding: 18px; text-transform: uppercase; letter-spacing: 1px;}
+        .badge { padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 22px; color: white; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}
         .bg-operator { background: #64748b; } .bg-verifikasi { background: #3b82f6; } .bg-tte { background: #f59e0b; } .bg-selesai { background: #10b981; }
 
-        .marquee { background: var(--primary); color: white; padding: 15px; font-size: 22px; position: fixed; bottom: 0; width: 100%; white-space: nowrap; }
+        /* Teks Berjalan (Marquee) di Bawah */
+        .marquee { 
+            background: var(--primary); 
+            color: white; 
+            padding: 18px; 
+            font-size: 26px; 
+            position: fixed; 
+            bottom: 0; 
+            width: 100%; 
+            white-space: nowrap; 
+            border-top: 5px solid var(--accent); /* Garis Kuning Emas */
+            font-weight: bold;
+            box-shadow: 0 -4px 6px rgba(0,0,0,0.1);
+        }
         .marquee span { display: inline-block; animation: scroll 20s linear infinite; }
         @keyframes scroll { from { transform: translateX(100vw); } to { transform: translateX(-100%); } }
     </style>
@@ -42,10 +96,10 @@
     </div>
     
     <div class="tv-grid">
-        <div id="media-container" class="tv-media"><h2>Memuat Media...</h2></div>
+        <div id="media-container" class="tv-media"><h2 style="color: var(--primary); text-align:center; margin-top:50px;">Memuat Media...</h2></div>
         <div class="tv-right-panel">
             <div class="tv-card">
-                <div style="font-size: 24px; font-weight: bold; color: #1e293b;">SEDANG DIPANGGIL</div>
+                <div style="font-size: 28px; font-weight: 900; color: var(--primary); letter-spacing: 1px;">SEDANG DIPANGGIL</div>
                 <div id="tv-number" class="tv-number">A0</div>
                 <div id="tv-loket" class="tv-loket">Menunggu...</div>
             </div>
@@ -129,9 +183,9 @@
 
         function renderTabelDokumen() {
             let c = document.getElementById('media-container'); if(!c) return;
-            let html = `<h2 style="margin:0 0 15px 0; color:#0f172a; border-bottom:3px solid #e2e8f0; padding-bottom:15px; font-size:32px;">📋 STATUS PROSES DOKUMEN</h2><table class="doc-table"><thead><tr><th>Nomor Antrian</th><th>Status Proses</th><th>Estimasi Selesai</th></tr></thead><tbody id="doc-table-body">`;
+            let html = `<h2 style="margin:0 0 20px 0; color:var(--primary); border-bottom:4px solid var(--accent); padding-bottom:15px; font-size:32px; text-transform:uppercase; font-weight:900; letter-spacing:1px;">📋 STATUS PROSES DOKUMEN</h2><table class="doc-table"><thead><tr><th>Nomor Antrian</th><th>Status Proses</th><th>Estimasi Selesai</th></tr></thead><tbody id="doc-table-body">`;
             let data = globalTrackingData;
-            if(!data || Object.keys(data).length === 0) { html += `<tr><td colspan="3" style="text-align:center; font-size:24px; padding:30px;">Belum ada antrian yang diproses.</td></tr>`; } 
+            if(!data || Object.keys(data).length === 0) { html += `<tr><td colspan="3" style="text-align:center; font-size:24px; padding:40px; color:gray; font-weight:bold;">Belum ada antrian yang diproses.</td></tr>`; } 
             else {
                 let sorted = Object.keys(data).map(k => ({ nomor: k, ...data[k] })).sort((a,b) => b.timestamp - a.timestamp);
                 sorted.forEach(item => {
@@ -146,10 +200,10 @@
                         let selisih = item.targetTime - Date.now();
                         if (selisih > 0) {
                             let totalDetik = Math.floor(selisih / 1000), menit = Math.floor(totalDetik / 60), detik = totalDetik % 60;
-                            textEstimasi = `${menit.toString().padStart(2, '0')}:${detik.toString().padStart(2, '0')} menit lagi`;
-                        } else { textEstimasi = "Waktu Habis / Segera Selesai"; }
+                            textEstimasi = `${menit.toString().padStart(2, '0')}:${detik.toString().padStart(2, '0')} menit`;
+                        } else { textEstimasi = "Segera Selesai"; }
                     }
-                    html += `<tr><td><b style="font-size:42px; color:#0f172a;">${item.nomor}</b></td><td><span class="badge ${bC}">${item.status}</span></td><td style="color:#d97706; font-weight:bold; font-size:24px;">${textEstimasi}</td></tr>`;
+                    html += `<tr><td><b style="font-size:46px; color:var(--primary);">${item.nomor}</b></td><td><span class="badge ${bC}">${item.status}</span></td><td style="color:var(--danger); font-weight:900; font-size:26px;">${textEstimasi}</td></tr>`;
                 });
             }
             html += `</tbody></table>`;
@@ -160,7 +214,7 @@
             let grid = document.getElementById('loket-grid'); grid.innerHTML = '';
             daftarLoket.forEach(loket => {
                 let val = statusLoket[loket] || '--';
-                grid.innerHTML += `<div class="loket-box"><div style="font-size: 14px; font-weight: bold; color: #cbd5e1;">${loket}</div><div style="font-size: 32px; font-weight: bold; color: #f59e0b; line-height: 1;">${val}</div></div>`;
+                grid.innerHTML += `<div class="loket-box"><div style="font-size: 16px; font-weight: bold; color: white; letter-spacing:1px; text-transform:uppercase;">${loket}</div><div style="font-size: 42px; font-weight: 900; color: var(--warning); line-height: 1; margin-top: 8px;">${val}</div></div>`;
             });
         }
 
@@ -173,7 +227,7 @@
             else if (mediaData.type === 'gslides') c.innerHTML = `<iframe src="${mediaData.content}"></iframe>`;
             else if (mediaData.type === 'images') {
                 let urls = mediaData.content.split(',').map(url => url.trim()).filter(url => url !== "");
-                if (urls.length === 0) { c.innerHTML = `<h2 style="color:gray;">Link gambar kosong</h2>`; return; }
+                if (urls.length === 0) { c.innerHTML = `<h2 style="color:gray; text-align:center; margin-top:50px;">Link gambar kosong</h2>`; return; }
                 c.innerHTML = `<img id="slider-img" src="${urls[0]}" onerror="this.onerror=null; this.src='https://via.placeholder.com/800x600?text=Link+Gambar+Gagal+Dimuat';">`;
                 if (urls.length > 1) {
                     let currentSlide = 0;
