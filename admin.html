@@ -35,8 +35,9 @@
         <button class="admin-btn btn-reset" onclick="resetSemua()">⚠️ Reset Semua Antrian</button>
     </div>
 
+    <!-- PANEL TRACKING DOKUMEN -->
     <div class="admin-card" style="text-align: left;">
-        <h3 style="margin-top: 0; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">📋 Update Proses Berkas & Timer 45 Menit</h3>
+        <h3 style="margin-top: 0; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">📋 Update Proses Berkas & Timer</h3>
         <div id="tracking-list" style="display: flex; flex-direction: column; gap: 15px;"></div>
     </div>
 
@@ -71,14 +72,21 @@
         onValue(ref(db, 'cibeureum_tracking'), snapshot => {
             let data = snapshot.val();
             let container = document.getElementById('tracking-list'); container.innerHTML = '';
+            
             if(data) {
                 let sorted = Object.keys(data).map(k => ({ nomor: k, ...data[k] })).sort((a, b) => b.timestamp - a.timestamp);
                 sorted.forEach(item => {
                     if (item.status === 'Selesai') return;
+                    
+                    let namaLayananInfo = item.nama ? `${item.nama} - ${item.layanan}` : "Menunggu Pemeriksaan Frontend";
+                    
                     container.innerHTML += `
                         <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #cbd5e1;">
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <strong style="font-size: 20px;">${item.nomor}</strong>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                                <div>
+                                    <strong style="font-size: 22px;">${item.nomor}</strong>
+                                    <span style="font-size: 14px; color:#475569; margin-left: 8px; font-weight:bold;">(${namaLayananInfo})</span>
+                                </div>
                                 <span style="background:#e0f2fe; color:#0369a1; padding:4px 8px; border-radius:6px; font-weight:bold; font-size:14px;">Estimasi: ${item.estimasi || '-'}</span>
                             </div>
                             <p style="margin:5px 0 10px 0; color:#3b82f6; font-weight:bold;">Status: ${item.status}</p>
