@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend - Pemeriksaan Berkas</title>
+    <style>
+        :root { --primary: #032b5e; --accent: #facc15; --danger: #dc2626; --success: #10b981; --bg: #f0f4f8; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #0f172a;}
+        
+        .header { background: var(--primary); color: white; padding: 20px; text-align: center; border-radius: 12px; border-bottom: 5px solid var(--accent); margin-bottom: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);}
+        .header h1 { margin: 0; font-size: 28px; text-transform: uppercase; }
+        .header p { margin: 5px 0 0 0; font-size: 14px; color: #cbd5e1; }
+
+        .container { max-width: 800px; margin: 0 auto; }
+        
+        /* Kartu Antrian */
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; border: 2px solid #e2e8f0; display: flex; flex-direction: column; gap: 15px;}
+        .card-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed #cbd5e1; padding-bottom: 15px;}
+        .nomor-antrian { font-size: 40px; font-weight: 900; color: var(--primary); margin: 0; line-height: 1;}
+        
+        /* Tombol Aksi */
+        .action-buttons { display: flex; gap: 10px; }
+        .btn { padding: 12px 20px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; color: white; transition: 0.2s;}
+        .btn:active { transform: scale(0.95); }
+        .btn-lengkap { background: var(--success); flex: 1;}
+        .btn-tidak { background: var(--danger); flex: 1;}
+
+        /* Form Input (Sembunyi secara default) */
+        .form-input { display: none; background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #cbd5e1; margin-top: 10px;}
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 14px; color: var(--primary);}
+        .form-group input { width: 100%; padding: 12px; border: 2px solid #cbd5e1; border-radius: 6px; font-size: 16px; box-sizing: border-box;}
+        .btn-submit { background: var(--primary); width: 100%; padding: 15px; font-size: 16px; margin-top: 10px;}
+
+        .empty-state { text-align: center; color: #64748b; font-size: 18px; padding: 50px; background: white; border-radius: 12px; border: 2px dashed #cbd5e1;}
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header">
+            <h1>Panel Frontend</h1>
+            <p>Pemeriksaan Berkas Awal Warga</p>
+        </div>
+
+        <div id="frontend-list">
+            <!-- Daftar nomor yang dipanggil akan muncul di sini -->
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
+        import { getDatabase, ref, onValue, set, remove } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDciXMHMtqypmfhLw2am_GAn3FV1bBjcKo",
+            authDomain: "antrian-cibeureum-f125b.firebaseapp.com",
+            databaseURL: "https://antrian-cibeureum-f125b-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "antrian-cibeureum-f125b"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // 1. MENDENGARKAN DATA TRACKING DARI ADMIN LOKET
+        onValue(ref(db, 'cibeureum_tracking'), snapshot => {
+            let data = snapshot.val();
+            let container = document.getElementById('frontend-list');
+            container.innerHTML = '';
+            let adaAntrian = false;
+
+            if(data) {
+                // Urutkan dari yang paling lama dipanggil (antrian pertama)
+                let sorted = Object.keys(data).map(k => ({ nomor: k, ...data[k] })).sort((a,b) => a.timestamp - b.timestamp);
+                
+                sorted.forEach(item => {
+                    // Hanya tampilkan jika statusnya masih "Pemeriksaan Berkas" (Belum diapa-apakan)
+                    if (item.status === 'Pemeriksaan Berkas') {
+                        adaAntrian = true;
+                        container.innerHTML += `
+                            <div class="card" id="card-${item.nomor}">
+                                <div class="card-header">
+                                    <div>
+                                        <p style="margin:0; font-size:14px; color:gray; font-weight:bold;">Menunggu Diperiksa</p>
+                                        <h2 class="nomor-antrian">${item.nomor}</h2>
+                                    </div>
+                                </div>
+
+                                <!-- Tombol Aksi Utama -->
+                                <div class="action-buttons" id="btn-group-${item.nomor}">
+                                    <button class="btn btn-tidak" onclick="berkasTidakLengkap('${item.nomor}')">❌ Berkas Tidak Lengkap</button>
+                                    <button class="btn btn-lengkap" onclick="tampilkanForm('${item.nomor}')">✅ Berkas Lengkap</button>
+                                </div>
+
+                                <!-- Form Input Data (Muncul jika klik Berkas Lengkap) -->
+                                <div class="form-input" id="form-${item.nomor}">
+                                    <h3 style="margin-top:0; color:#032b5e; font-size:18px;">Input Data Berkas Lengkap</h3>
+                                    <div class="form-group">
+                                        <label>Nama Pemohon</label>
+                                        <input type="text" id="nama-${item.nomor}" placeholder="Contoh: Budi Santoso">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Jenis Dokumen yang Diajukan</label>
+                                        <input type="text" id="layanan-${item.nomor}" placeholder="Contoh: Pembuatan KTP / Surat Pindah">
+                                    </div>
+                                    <div style="display:flex; gap:10px;">
+                                        <button class="btn btn-tidak" onclick="batalForm('${item.nomor}')">Batal</button>
+                                        <button class="btn btn-submit" onclick="simpanBerkasLengkap('${item.nomor}')">💾 Kirim ke Operator</button>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+            }
+
+            // Jika kosong
+            if(!adaAntrian) {
+                container.innerHTML = `<div class="empty-state">📭<br><br>Belum ada antrean baru yang dipanggil oleh Admin Loket.</div>`;
+            }
+        });
+
+        // 2. FUNGSI JIKA BERKAS TIDAK LENGKAP
+        window.berkasTidakLengkap = function(nomor) {
+            if(confirm(`Yakin berkas antrian ${nomor} TIDAK LENGKAP? Nomor akan dihilangkan dari sistem.`)) {
+                // Hapus data dari tracking agar hilang dari TV dan Frontend
+                remove(ref(db, `cibeureum_tracking/${nomor}`));
+            }
+        }
+
+        // 3. FUNGSI MENAMPILKAN FORM (BERKAS LENGKAP)
+        window.tampilkanForm = function(nomor) {
+            document.getElementById(`btn-group-${nomor}`).style.display = 'none';
+            document.getElementById(`form-${nomor}`).style.display = 'block';
+        }
+
+        window.batalForm = function(nomor) {
+            document.getElementById(`btn-group-${nomor}`).style.display = 'flex';
+            document.getElementById(`form-${nomor}`).style.display = 'none';
+        }
+
+        // 4. FUNGSI SIMPAN DAN KIRIM KE ADMIN LOKET (OPERATOR)
+        window.simpanBerkasLengkap = function(nomor) {
+            let namaVal = document.getElementById(`nama-${nomor}`).value.trim();
+            let layananVal = document.getElementById(`layanan-${nomor}`).value.trim();
+
+            if(!namaVal || !layananVal) {
+                alert("Nama Pemohon dan Jenis Dokumen wajib diisi!");
+                return;
+            }
+
+            // Memperbarui data tracking di Firebase
+            // Mengubah keterangan menjadi format: "Nama - Layanan" agar terbaca di TV
+            let ketGabungan = `${namaVal} (${layananVal})`;
+
+            set(ref(db, `cibeureum_tracking/${nomor}/ket`), ketGabungan);
+            set(ref(db, `cibeureum_tracking/${nomor}/status`), 'Menunggu Input Operator');
+        }
+    </script>
+</body>
+</html>
