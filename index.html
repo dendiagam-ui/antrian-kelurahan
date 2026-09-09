@@ -8,7 +8,7 @@
         :root { 
             --primary: #032b5e; --secondary: #0a4082; --accent: #facc15; 
             --danger: #dc2626; --warning: #facc15; --bg-color: #f0f4f8; --text-dark: #0f172a;
-            --table-scale: 1; /* Skala Ukuran Font Default */
+            --table-scale: 1;
         }
         body { margin: 0; padding: 0; background-color: var(--bg-color); overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         .header { background: var(--primary); color: white; padding: 22px; text-align: center; font-size: 32px; font-weight: 900; position: relative; border-bottom: 5px solid var(--accent); text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);}
@@ -26,11 +26,10 @@
         .loket-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 15px; }
         .loket-box { background: var(--secondary); color: white; padding: 15px; border-radius: 12px; text-align: center; border: 2px solid var(--primary); box-shadow: 0 4px 6px rgba(0,0,0,0.1);}
         
-        /* === CSS TABEL STATUS BISA DIUBAH UKURANNYA DARI SETTING === */
+        /* TABEL STATUS BISA DIUBAH UKURANNYA DARI SETTING */
         .doc-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         .doc-table th { background: var(--primary); color: white; border-radius: 8px; text-transform: uppercase; letter-spacing: 1px; }
         
-        /* Formula Ukuran Font Proporsional (Skala dari Variabel CSS) */
         .doc-table th { font-size: calc(18px * var(--table-scale)); padding: calc(15px * var(--table-scale)); }
         .doc-table td { padding: calc(15px * var(--table-scale)) 12px; border-bottom: 2px solid #e2e8f0; }
         .doc-nomor { font-size: calc(32px * var(--table-scale)); color: var(--primary); }
@@ -92,7 +91,6 @@
             if(!data) return;
             document.getElementById('tv-marquee').innerText = data.marquee || "Selamat Datang";
             
-            // Menerapkan skala ukuran font pada tabel
             let scaleSetting = (data.media && data.media.fontSize) ? data.media.fontSize : "1";
             document.documentElement.style.setProperty('--table-scale', scaleSetting);
 
@@ -161,31 +159,38 @@
                     <tbody id="doc-table-body">`;
             
             let data = globalTrackingData;
+            // Jika data tracking kosong (telah di-reset), tabel otomatis akan menampilkan ini
             if(!data || Object.keys(data).length === 0) { 
                 html += `<tr><td colspan="5" style="text-align:center; font-size:20px; padding:30px; color:gray; font-weight:bold;">Belum ada antrian yang diproses.</td></tr>`; 
             } 
             else {
                 let sorted = Object.keys(data).map(k => ({ nomor: k, ...data[k] })).sort((a,b) => b.timestamp - a.timestamp);
                 sorted.forEach(item => {
-                    if (item.status === 'Selesai') return;
+                    // BARIS DIHAPUS: if (item.status === 'Selesai') return;
+                    // Tabel TV sekarang akan memunculkan yang statusnya Selesai
+                    
                     let bC = 'bg-operator';
                     if(item.status === 'Input Operator') bC = 'bg-verifikasi';
                     if(item.status === 'Verifikasi') bC = 'bg-tte';
                     if(item.status === 'Menunggu TTE') bC = 'bg-selesai';
+                    if(item.status === 'Selesai') bC = 'bg-selesai';
                     
                     let textEstimasi = "-";
-                    if (item.targetTime) {
+                    // Jika status Selesai, langsung paksa tulisan estimasi jadi "Selesai" (warna hijau diatur lewat inline style nanti jika mau)
+                    if (item.status === 'Selesai') {
+                        textEstimasi = "<span style='color:#10b981;'>Selesai</span>";
+                    } 
+                    else if (item.targetTime) {
                         let selisih = item.targetTime - Date.now();
                         if (selisih > 0) {
                             let totalDetik = Math.floor(selisih / 1000), menit = Math.floor(totalDetik / 60), detik = totalDetik % 60;
                             textEstimasi = `${menit.toString().padStart(2, '0')}:${detik.toString().padStart(2, '0')}`;
-                        } else { textEstimasi = "Selesai"; }
+                        } else { textEstimasi = "Batas Waktu"; }
                     }
 
                     let namaWarga = item.nama ? item.nama : "<i style='color:#94a3b8;'>Pemeriksaan Awal</i>";
                     let suratWarga = item.layanan ? item.layanan : "-";
 
-                    // Diterapkan Class CSS agar merespon Skala dari Setting
                     html += `
                         <tr>
                             <td><b class="doc-nomor">${item.nomor}</b></td>

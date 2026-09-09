@@ -35,7 +35,6 @@
         <button class="admin-btn btn-reset" onclick="resetSemua()">⚠️ Reset Semua Antrian</button>
     </div>
 
-    <!-- PANEL TRACKING DOKUMEN -->
     <div class="admin-card" style="text-align: left;">
         <h3 style="margin-top: 0; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">📋 Update Proses Berkas & Timer</h3>
         <div id="tracking-list" style="display: flex; flex-direction: column; gap: 15px;"></div>
@@ -76,7 +75,7 @@
             if(data) {
                 let sorted = Object.keys(data).map(k => ({ nomor: k, ...data[k] })).sort((a, b) => b.timestamp - a.timestamp);
                 sorted.forEach(item => {
-                    if (item.status === 'Selesai') return;
+                    // BARIS DIHAPUS: item.status === 'Selesai' kini tetap ditampilkan
                     
                     let namaLayananInfo = item.nama ? `${item.nama} - ${item.layanan}` : "Menunggu Pemeriksaan Frontend";
                     
@@ -87,9 +86,9 @@
                                     <strong style="font-size: 22px;">${item.nomor}</strong>
                                     <span style="font-size: 14px; color:#475569; margin-left: 8px; font-weight:bold;">(${namaLayananInfo})</span>
                                 </div>
-                                <span style="background:#e0f2fe; color:#0369a1; padding:4px 8px; border-radius:6px; font-weight:bold; font-size:14px;">Estimasi: ${item.estimasi || '-'}</span>
+                                <span style="background:#e0f2fe; color:#0369a1; padding:4px 8px; border-radius:6px; font-weight:bold; font-size:14px;">Status: ${item.status === 'Selesai' ? 'Selesai' : 'Diproses'}</span>
                             </div>
-                            <p style="margin:5px 0 10px 0; color:#3b82f6; font-weight:bold;">Status: ${item.status}</p>
+                            <p style="margin:5px 0 10px 0; color:#3b82f6; font-weight:bold;">Posisi: ${item.status}</p>
                             <div style="margin-top: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
                                 <button onclick="updateStatus('${item.nomor}', 'Input Operator', true)" class="btn-track" style="background:#3b82f6;">Input Operator (Mulai Timer)</button>
                                 <button onclick="updateStatus('${item.nomor}', 'Verifikasi', false)" class="btn-track" style="background:#f59e0b;">Verifikasi</button>
@@ -144,7 +143,7 @@
         }
 
         window.resetSemua = function() {
-            if(confirm("Yakin mereset sistem?")) {
+            if(confirm("Yakin mereset sistem? Antrian TV dan Tabel Proses akan dihapus bersih.")) {
                 set(ref(db, 'cibeureum_queue'), { totals: {}, calls: {}, status: {}, displayCode: "A0", timestamp: Date.now() });
                 set(ref(db, 'cibeureum_tracking'), null);
             }
