@@ -14,7 +14,8 @@
         .btn-call { background: #3b82f6; } .btn-recall { background: #f59e0b; } .btn-reset { background: #ef4444; margin-top: 20px;}
         select { width: 100%; padding: 12px; font-size: 18px; border-radius: 8px; border: 2px solid #cbd5e1; margin-bottom: 15px; font-weight: bold;}
         .info-box { background: #f1f5f9; padding: 15px; border-radius: 12px; margin: 20px 0; border: 1px solid #e2e8f0; }
-        .btn-track { padding: 8px 10px; border: none; border-radius: 6px; font-weight: bold; font-size:12px; cursor: pointer; color: white;}
+        .btn-track { padding: 8px 10px; border: none; border-radius: 6px; font-weight: bold; font-size:12px; cursor: pointer; color: white; transition: 0.2s;}
+        .btn-track:active { transform: scale(0.95); }
     </style>
 </head>
 <body>
@@ -35,6 +36,7 @@
         <button class="admin-btn btn-reset" onclick="resetSemua()">⚠️ Reset Semua Antrian</button>
     </div>
 
+    <!-- PANEL TRACKING DOKUMEN -->
     <div class="admin-card" style="text-align: left;">
         <h3 style="margin-top: 0; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">📋 Update Proses Berkas & Timer</h3>
         <div id="tracking-list" style="display: flex; flex-direction: column; gap: 15px;"></div>
@@ -75,9 +77,11 @@
             if(data) {
                 let sorted = Object.keys(data).map(k => ({ nomor: k, ...data[k] })).sort((a, b) => b.timestamp - a.timestamp);
                 sorted.forEach(item => {
-                    // BARIS DIHAPUS: item.status === 'Selesai' kini tetap ditampilkan
                     
                     let namaLayananInfo = item.nama ? `${item.nama} - ${item.layanan}` : "Menunggu Pemeriksaan Frontend";
+                    
+                    // Membersihkan tanda kutip tunggal dari nama jika ada (agar tidak error saat diklik)
+                    let safeNama = item.nama ? item.nama.replace(/'/g, "\\'") : "";
                     
                     container.innerHTML += `
                         <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #cbd5e1;">
@@ -90,6 +94,9 @@
                             </div>
                             <p style="margin:5px 0 10px 0; color:#3b82f6; font-weight:bold;">Posisi: ${item.status}</p>
                             <div style="margin-top: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
+                                <!-- TOMBOL PANGGILAN KHUSUS (DITAMBAHKAN DI SINI) -->
+                                <button onclick="panggilPemohon('${safeNama}')" class="btn-track" style="background:#9333ea; padding-right:15px; padding-left:15px;">📢 Panggil Warga</button>
+                                
                                 <button onclick="updateStatus('${item.nomor}', 'Input Operator', true)" class="btn-track" style="background:#3b82f6;">Input Operator (Mulai Timer)</button>
                                 <button onclick="updateStatus('${item.nomor}', 'Verifikasi', false)" class="btn-track" style="background:#f59e0b;">Verifikasi</button>
                                 <button onclick="updateStatus('${item.nomor}', 'Menunggu TTE', false)" class="btn-track" style="background:#6366f1;">Menunggu TTE</button>
@@ -99,6 +106,32 @@
                 });
             } else { container.innerHTML = '<p style="color:gray;">Belum ada dokumen yang diproses.</p>'; }
         });
+
+        // FUNGSI BARU UNTUK MEMANGGIL NAMA PEMOHON DENGAN SUARA DINGDONG
+        window.panggilPemohon = function(namaPemohon) {
+            if(!namaPemohon) {
+                alert("Tidak bisa memanggil! Nama pemohon belum diinput oleh petugas Frontend.");
+                return;
+            }
+            
+            let audio = new Audio('dingdong.mp3');
+            audio.play().then(() => {
+                let waktuTunggu = (audio.duration * 1000 > 2000) ? (audio.duration * 1000 - 2000) : 0;
+                setTimeout(() => {
+                    // Teks ucapan yang dibaca oleh sistem
+                    let ucapan = new SpeechSynthesisUtterance(`Atas nama, ${namaPemohon}, silakan menuju, Loket Dokumen.`);
+                    ucapan.lang = 'id-ID'; 
+                    ucapan.rate = 0.85;
+                    window.speechSynthesis.speak(ucapan);
+                }, waktuTunggu);
+            }).catch(() => {
+                // Fallback jika browser memblokir audio dingdong tanpa interaksi
+                let ucapan = new SpeechSynthesisUtterance(`Atas nama, ${namaPemohon}, silakan menuju, Loket Dokumen.`);
+                ucapan.lang = 'id-ID'; 
+                ucapan.rate = 0.85;
+                window.speechSynthesis.speak(ucapan);
+            });
+        }
 
         window.updateStatus = function(nomor, statusBaru, isMulaiTimer) {
             let updateData = { status: statusBaru };
